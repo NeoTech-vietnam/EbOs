@@ -1,0 +1,43 @@
+# EbOs verification
+
+The host regression compiles the real `EbOs_EspIdf.c` against deterministic IDF
+fakes. It covers one- and two-core configuration limits, failure cleanup,
+immediate completion, completion before native suspension, join timeout/retry,
+stack sampling, existing mutex/delay behavior and an unrelated screen-project
+configuration. It uses the real `NeoContracts/Neo_Types.h`; the fake standard
+types isolate this runtime test from a project's platform-header migration.
+
+From this repository, with a C11 compiler and sibling NeoContracts checkout:
+
+```text
+python test/run_host_tests.py
+```
+
+Use `--contracts <checkout>` when NeoContracts is elsewhere. On Linux,
+`--sanitize` enables address/undefined-behavior sanitizers. Host fakes do not
+prove cross-core context-switch or native task cleanup behavior.
+
+## Dedicated ESP32-S3 acceptance app
+
+`on_target` compiles the real backend without host fakes. It requires ESP-IDF
+6.0.1 and an assembled integration workspace supplying compatible CUCEL and
+NeoContracts headers. The default workspace is the sibling `neocam_csw`.
+It exercises both pinned cores and unpinned tasks, 100 immediate returns,
+10 cooperative timeout/retries, stack samples and retained internal heap.
+
+From an activated ESP-IDF 6.0.1 terminal:
+
+```text
+cd test/on_target
+idf.py -DIDF_TARGET=esp32s3 -DNEO_INTEGRATION_DIR=<assembled-workspace> build
+```
+
+Run the following only when the board is available for this test firmware:
+
+```text
+idf.py -p <serial-port> flash monitor
+```
+
+Flashing replaces camera firmware on that board. A successful build is not
+hardware acceptance: record the monitor output containing
+`PASS EBOS_DUAL_CORE_LIFECYCLE` and verify normal NeoCam operation separately.

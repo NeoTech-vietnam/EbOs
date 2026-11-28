@@ -1,0 +1,13 @@
+cmake_minimum_required(VERSION 3.22)
+if(CMAKE_HOST_WIN32)
+    set(CMAKE_NINJA_FORCE_RESPONSE_FILE ON)
+endif()
+set(NEO_EBOS_DIR "${CMAKE_CURRENT_LIST_DIR}/../..")
+set(NEO_INTEGRATION_DIR "${CMAKE_CURRENT_LIST_DIR}/../../../../neocam_csw" CACHE PATH
+    "Assembled integration workspace supplying CUCEL and NeoContracts")
+get_filename_component(NEO_INTEGRATION_DIR "${NEO_INTEGRATION_DIR}" ABSOLUTE)
+include($ENV{IDF_PATH}/tools/cmake/project.cmake)
+project(ebos_lifecycle_stress)
+if(NOT "${IDF_VERSION_MAJOR}.${IDF_VERSION_MINOR}.${IDF_VERSION_PATCH}" STREQUAL "6.0.1")
+    message(FATAL_ERROR "This lifecycle test requires ESP-IDF 6.0.1")
+endif()

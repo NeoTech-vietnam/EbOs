@@ -1,7 +1,8 @@
 EbOs documentation
 ==================
 
-Software specification for the EbOs module in the NeoCam camera project.
+Software specification for the reusable EbOs ESP-IDF adaptation. Each product
+owns its concrete configuration and task wiring; this module owns mechanisms.
 
 .. toctree::
    :maxdepth: 2
