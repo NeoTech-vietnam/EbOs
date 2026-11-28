@@ -15,6 +15,7 @@ SOURCE_SECTIONS = ("Includes", "Defines / Macros", "Local types", "Static variab
                    "Static function prototypes", "Local functions", "Public functions")
 INTEGRATION = None
 SOURCE_CACHE = None
+PRODUCTION_GROUPS = ("Os", "OsShell", "Os_EspIdf")
 STANDARD_SERVICES = {"ActivateTask", "TerminateTask", "ChainTask", "Schedule", "GetTaskID",
                      "GetTaskState", "StartOS", "ShutdownOS", "GetActiveApplicationMode"}
 
@@ -47,6 +48,13 @@ def declaration_comment(text, name):
     return comment, match.group()
 
 
+def production_sources(root):
+    for group in PRODUCTION_GROUPS:
+        for path in (root / group).rglob("*.[ch]"):
+            if not {"test", "_build", "docs"}.intersection(path.relative_to(root / group).parts):
+                yield path
+
+
 def verify_sources(catalog, folder):
     # Optional local evidence check: normal CI stays offline and dependency-free.
     from pypdf import PdfReader
@@ -70,6 +78,7 @@ def verify_sources(catalog, folder):
 
 def validate(root, integration=None, source_cache=None):
     catalog = read_catalog(root)
+    require(not list(root.glob("*.[ch]")), "Production C/header files must be classified below EbOs")
     require(catalog["release"] == "R26-11", "Unexpected standard release")
     require(catalog["standard_runtime_implemented"] is False, "This stage has no standard runtime")
     require(set(catalog["standard_services"]) == STANDARD_SERVICES, "Incorrect core service coverage")
@@ -82,7 +91,7 @@ def validate(root, integration=None, source_cache=None):
             require(document["release"] == catalog["release"] and
                     1 <= requirement["page"] <= document["pages"],
                     f"Incorrect requirement source: {identifier}")
-    types = (root / "Os_Types.h").read_text(encoding="utf-8")
+    types = (root / "Os/Os_Types.h").read_text(encoding="utf-8")
     require(not re.search(r"\btypedef\b[^;]*\bStatusType\s*;", types),
             "StatusType must remain owned by CUCEL")
     require(not re.search(r"^\s*#\s*define\s+E_OK\b", types, re.M),
@@ -120,7 +129,7 @@ def validate(root, integration=None, source_cache=None):
         require(re.sub(r"\s+", "", signature) == re.sub(r"\s+", "", service["signature"]),
                 f"Changed standard signature: {name}")
         require("not implemented" in comment.lower(), f"Missing declaration-only notice: {name}")
-        for source in root.glob("*.[ch]"):
+        for source in production_sources(root):
             body = re.sub(r"/\*.*?\*/|//[^\n]*", "", source.read_text(encoding="utf-8"), flags=re.S)
             require(not re.search(r"^\s*#\s*define\s+" + name + r"\b", body, re.M),
                     f"Standard service alias: {name}")
@@ -144,7 +153,9 @@ class TraceabilityTests(unittest.TestCase):
         shutil.copy2(ROOT / "requirements/traceability.json", root / "requirements/traceability.json")
         for record in read_catalog(ROOT)["source_files"]:
             if record["scope"] == "module":
-                shutil.copy2(ROOT / record["path"], root / record["path"])
+                target = root / record["path"]
+                target.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copy2(ROOT / record["path"], target)
         return root
 
     def test_actual_profile(self):
@@ -152,7 +163,7 @@ class TraceabilityTests(unittest.TestCase):
 
     def test_unknown_trace_is_rejected(self):
         root = self.fixture()
-        path = root / "EbOs.h"
+        path = root / "OsShell/EbOs.h"
         path.write_text(path.read_text() + "\n/* TRACE[SWS_Os_99999] */\n")
         with self.assertRaisesRegex(ValueError, "Unknown TRACE"):
             validate(root)
@@ -167,21 +178,21 @@ class TraceabilityTests(unittest.TestCase):
 
     def test_native_alias_is_rejected(self):
         root = self.fixture()
-        path = root / "Os.h"
+        path = root / "Os/Os.h"
         path.write_text(path.read_text() + "\n#define ActivateTask EbOs_TaskCreate\n")
         with self.assertRaisesRegex(ValueError, "Standard service alias"):
             validate(root)
 
     def test_changed_signature_is_rejected(self):
         root = self.fixture()
-        path = root / "Os.h"
+        path = root / "Os/Os.h"
         path.write_text(path.read_text().replace("StatusType ActivateTask(", "void ActivateTask("))
         with self.assertRaisesRegex(ValueError, "Changed standard signature"):
             validate(root)
 
     def test_status_type_redefinition_is_rejected(self):
         root = self.fixture()
-        path = root / "Os_Types.h"
+        path = root / "Os/Os_Types.h"
         path.write_text(path.read_text() + "\ntypedef unsigned char StatusType;\n")
         with self.assertRaisesRegex(ValueError, "StatusType must remain owned"):
             validate(root)
@@ -192,6 +203,19 @@ class TraceabilityTests(unittest.TestCase):
         catalog["requirements"]["SWS_Os_00001"]["status"] = "satisfied"
         (root / "requirements/traceability.json").write_text(json.dumps(catalog))
         with self.assertRaisesRegex(ValueError, "Incorrect requirement satisfaction claim"):
+            validate(root)
+
+    def test_native_alias_in_nested_backend_is_rejected(self):
+        root = self.fixture()
+        path = root / "Os_EspIdf/EbOs_EspIdf.c"
+        path.write_text(path.read_text() + "\n#define ActivateTask EbOs_TaskCreate\n")
+        with self.assertRaisesRegex(ValueError, "Standard service alias"):
+            validate(root)
+
+    def test_flat_production_header_is_rejected(self):
+        root = self.fixture()
+        (root / "EbOs.h").write_text('#include "OsShell/EbOs.h"\n')
+        with self.assertRaisesRegex(ValueError, "must be classified"):
             validate(root)
 
 

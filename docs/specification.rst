@@ -40,6 +40,10 @@ Specification of EbOs
      - 1.2
      - R26-11 requirements/catalog, standard interface declarations and
        NeoTech source-level traceability. Native runtime behavior is preserved.
+   * - 2026-11-28
+     - 1.3
+     - Classify standard contracts, shell interfaces and platform code into
+       MMD-style source groups; preserve behavior and requirement identifiers.
 
 .. contents:: Contents
    :local:
@@ -53,7 +57,7 @@ tasks backed by ESP-IDF FreeRTOS. It reuses the kernel rather than implementing
 a scheduler. A configured native task is a persistent thread; it is not an
 AUTOSAR basic task with activation and termination semantics.
 
-``Os.h`` and ``Os_Types.h`` separately declare the selected standard task and
+``Os/Os.h`` and ``Os/Os_Types.h`` separately declare the selected standard task and
 lifecycle profile. All nine services are **specified, not implemented**. Existing
 ``EbOs_*`` functions remain NeoTech extensions and are not substitutes for those
 services. See :ref:`the requirements and service catalog <ebos-requirements>`.
@@ -118,15 +122,33 @@ entry-function references. HTTP and Wi-Fi execution are outside this pilot.
 
 **Source files**
 
-``EbOs.h`` declares portable interfaces and configuration types;
-``EbOs_EspIdf.c`` contains the native implementation; ``module.cmake`` exports
-source/include metadata. Read these from the same checkout revision as this
-document. Product values and entry bindings live outside the module.
+The package uses MMD-style groups rather than placing C sources and headers at
+its root:
 
-``Os.h`` declares the standard service contracts; ``Os_Types.h`` supplies their
-portable types and profile constants. Neither header adds runtime service
-implementations. The machine-readable source/requirement catalog is
-``requirements/traceability.json`` in this module repository.
+.. code-block:: text
+
+   EbOs/
+      Os/Os.h                 standard service declarations
+      Os/Os_Types.h           standard contract types/profile values
+      OsShell/EbOs.h          reusable native-helper interface
+      Os_EspIdf/EbOs_EspIdf.c  ESP-IDF implementation
+      module.cmake            package source/include metadata
+      docs/                   package documentation
+      requirements/           reviewed trace catalog
+      test/                   shared verification
+
+``OsShell/EbOs.h`` declares the portable native-task/mutex interfaces and
+configuration types. ``Os_EspIdf/EbOs_EspIdf.c`` implements them using the SDK.
+``Os/Os.h`` and ``Os/Os_Types.h`` define the separate standard contract;
+neither adds runtime service implementations. ``module.cmake`` exports the
+classified include directories, so public include directives remain
+``#include "EbOs.h"`` and ``#include "Os.h"``.
+
+Read source and documentation from the same revision. The product keeps native
+shell policy and entry bindings in ``Conf/EbOs/OsShell``. Package-level build
+metadata, tests and the machine-readable ``requirements/traceability.json``
+remain at the package root. No empty groups for unimplemented MMD features are
+introduced.
 
 6 Requirements traceability
 ---------------------------
@@ -145,7 +167,7 @@ the working adapter; its IDs are not AUTOSAR-issued requirements.
    * - ``NEO_EBOS_00001`` / ``NEO_EBOS_00002``
      - Provide bounded waits and an explicit indefinite mutex wait.
      - :ref:`Mutex and delay behavior <sws-ebos-mutex>`
-     - ``EbOs_EspIdf.c``. Portable integration tests use a backend fake.
+     - ``Os_EspIdf/EbOs_EspIdf.c``. Portable integration tests use a backend fake.
    * - ``NEO_EBOS_00007`` / ``NEO_EBOS_00012``
      - Validate project configuration and create opaque native tasks without
        product-specific dependencies.
@@ -422,7 +444,7 @@ Project-owned task configuration
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 ``EbOs_TaskConfigType`` is defined by EbOs. A product supplies values and entry
-bindings in ``Conf/EbOs`` and passes configuration into EbOs. The implementation
+bindings in ``Conf/EbOs/OsShell`` and passes configuration into EbOs. The implementation
 does not include product configuration headers or know any product symbols.
 
 .. list-table:: Task configuration

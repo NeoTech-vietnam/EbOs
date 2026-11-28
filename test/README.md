@@ -1,11 +1,15 @@
 # EbOs verification
 
-The host regression compiles the real `EbOs_EspIdf.c` against deterministic IDF
+The host regression compiles the real `Os_EspIdf/EbOs_EspIdf.c` against deterministic IDF
 fakes. It covers one- and two-core configuration limits, failure cleanup,
 immediate completion, completion before native suspension, join timeout/retry,
 stack sampling, existing mutex/delay behavior and an unrelated screen-project
 configuration. It uses the real `NeoContracts/Neo_Types.h`; the fake standard
 types isolate this runtime test from a project's platform-header migration.
+
+The runner obtains standard headers from `Os`, the native interface from
+`OsShell`, and the backend from `Os_EspIdf`. Shared test fixtures remain under
+`test`; the public include names and verification commands are unchanged.
 
 From this repository, with a C11 compiler and sibling NeoContracts checkout:
 

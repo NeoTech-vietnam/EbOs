@@ -26,7 +26,7 @@ def main():
     flags = ["-std=c11", "-Wall", "-Wextra", "-Werror", "-pedantic", "-g"]
     if args.sanitize:
         flags += ["-fsanitize=address,undefined", "-fno-omit-frame-pointer", "-no-pie"]
-    subprocess.run([cc, *flags, "-I" + str(ROOT / "test/fakes"), "-I" + str(ROOT),
+    subprocess.run([cc, *flags, "-I" + str(ROOT / "test/fakes"), "-I" + str(ROOT / "Os"),
                     "-fsyntax-only", str(ROOT / "test/test_os_contracts.c")],
                    env=environment, check=True)
     print("PASS R26-11 declaration signatures and profile types", flush=True)
@@ -35,7 +35,7 @@ def main():
         binary = output / (f"ebos-{cores}" + (".exe" if os.name == "nt" else ""))
         subprocess.run([cc, *flags, f"-DconfigNUMBER_OF_CORES={cores}",
                         "-I" + str(ROOT / "test/fakes"), "-I" + str(args.contracts.resolve()),
-                        "-I" + str(ROOT), str(ROOT / "EbOs_EspIdf.c"),
+                        "-I" + str(ROOT / "OsShell"), str(ROOT / "Os_EspIdf/EbOs_EspIdf.c"),
                         str(ROOT / "test/test_ebos.c"), str(ROOT / "test/fixtures/second_project.c"),
                         "-o", str(binary)], env=environment, check=True)
         subprocess.run([str(binary)], env=environment, check=True)

@@ -257,7 +257,7 @@
   },
   "standard_services": {
     "ActivateTask": {
-      "header": "Os.h",
+      "header": "Os/Os.h",
       "signature": "StatusType ActivateTask(TaskType TaskID);",
       "origin_document": "OSEK_OS_223",
       "origin_clause": "13.2.3.1",
@@ -275,7 +275,7 @@
       "runtime_verification": null
     },
     "TerminateTask": {
-      "header": "Os.h",
+      "header": "Os/Os.h",
       "signature": "StatusType TerminateTask(void);",
       "origin_document": "OSEK_OS_223",
       "origin_clause": "13.2.3.2",
@@ -294,7 +294,7 @@
       "runtime_verification": null
     },
     "ChainTask": {
-      "header": "Os.h",
+      "header": "Os/Os.h",
       "signature": "StatusType ChainTask(TaskType TaskID);",
       "origin_document": "OSEK_OS_223",
       "origin_clause": "13.2.3.3",
@@ -313,7 +313,7 @@
       "runtime_verification": null
     },
     "Schedule": {
-      "header": "Os.h",
+      "header": "Os/Os.h",
       "signature": "StatusType Schedule(void);",
       "origin_document": "OSEK_OS_223",
       "origin_clause": "13.2.3.4",
@@ -332,7 +332,7 @@
       "runtime_verification": null
     },
     "GetTaskID": {
-      "header": "Os.h",
+      "header": "Os/Os.h",
       "signature": "StatusType GetTaskID(TaskRefType TaskID);",
       "origin_document": "OSEK_OS_223",
       "origin_clause": "13.2.3.5",
@@ -350,7 +350,7 @@
       "runtime_verification": null
     },
     "GetTaskState": {
-      "header": "Os.h",
+      "header": "Os/Os.h",
       "signature": "StatusType GetTaskState(TaskType TaskID, TaskStateRefType State);",
       "origin_document": "OSEK_OS_223",
       "origin_clause": "13.2.3.6",
@@ -368,7 +368,7 @@
       "runtime_verification": null
     },
     "StartOS": {
-      "header": "Os.h",
+      "header": "Os/Os.h",
       "signature": "void StartOS(AppModeType Mode);",
       "origin_document": "OSEK_OS_223",
       "origin_clause": "13.7.2.2",
@@ -387,7 +387,7 @@
       "runtime_verification": null
     },
     "ShutdownOS": {
-      "header": "Os.h",
+      "header": "Os/Os.h",
       "signature": "void ShutdownOS(StatusType Error);",
       "origin_document": "OSEK_OS_223",
       "origin_clause": "13.7.2.3",
@@ -407,7 +407,7 @@
       "runtime_verification": null
     },
     "GetActiveApplicationMode": {
-      "header": "Os.h",
+      "header": "Os/Os.h",
       "signature": "AppModeType GetActiveApplicationMode(void);",
       "origin_document": "OSEK_OS_223",
       "origin_clause": "13.7.2.1",
@@ -427,7 +427,7 @@
   },
   "extensions": {
     "EbOs_MutexCreate": {
-      "header": "EbOs.h",
+      "header": "OsShell/EbOs.h",
       "trace": "NEO_EBOS_00001",
       "status": "implemented",
       "verification": [
@@ -435,7 +435,7 @@
       ]
     },
     "EbOs_MutexLock": {
-      "header": "EbOs.h",
+      "header": "OsShell/EbOs.h",
       "trace": "NEO_EBOS_00002",
       "status": "implemented",
       "verification": [
@@ -443,7 +443,7 @@
       ]
     },
     "EbOs_MutexUnlock": {
-      "header": "EbOs.h",
+      "header": "OsShell/EbOs.h",
       "trace": "NEO_EBOS_00003",
       "status": "implemented",
       "verification": [
@@ -451,7 +451,7 @@
       ]
     },
     "EbOs_MutexDelete": {
-      "header": "EbOs.h",
+      "header": "OsShell/EbOs.h",
       "trace": "NEO_EBOS_00004",
       "status": "implemented",
       "verification": [
@@ -459,7 +459,7 @@
       ]
     },
     "EbOs_Delay": {
-      "header": "EbOs.h",
+      "header": "OsShell/EbOs.h",
       "trace": "NEO_EBOS_00005",
       "status": "implemented",
       "verification": [
@@ -467,7 +467,7 @@
       ]
     },
     "EbOs_DelayOneTick": {
-      "header": "EbOs.h",
+      "header": "OsShell/EbOs.h",
       "trace": "NEO_EBOS_00006",
       "status": "implemented",
       "verification": [
@@ -475,7 +475,7 @@
       ]
     },
     "EbOs_TaskCreate": {
-      "header": "EbOs.h",
+      "header": "OsShell/EbOs.h",
       "trace": "NEO_EBOS_00007",
       "status": "implemented",
       "verification": [
@@ -483,7 +483,7 @@
       ]
     },
     "EbOs_TaskJoinAndDelete": {
-      "header": "EbOs.h",
+      "header": "OsShell/EbOs.h",
       "trace": "NEO_EBOS_00008",
       "status": "implemented",
       "verification": [
@@ -491,7 +491,7 @@
       ]
     },
     "EbOs_TaskGetStackMinFree": {
-      "header": "EbOs.h",
+      "header": "OsShell/EbOs.h",
       "trace": "NEO_EBOS_00009",
       "status": "implemented",
       "verification": [
@@ -502,27 +502,27 @@
   "source_files": [
     {
       "scope": "module",
-      "path": "EbOs.h"
+      "path": "OsShell/EbOs.h"
     },
     {
       "scope": "module",
-      "path": "EbOs_EspIdf.c"
+      "path": "Os_EspIdf/EbOs_EspIdf.c"
     },
     {
       "scope": "module",
-      "path": "Os.h"
+      "path": "Os/Os.h"
     },
     {
       "scope": "module",
-      "path": "Os_Types.h"
+      "path": "Os/Os_Types.h"
     },
     {
       "scope": "integration",
-      "path": "Conf/EbOs/EbOs_Cfg.h"
+      "path": "Conf/EbOs/OsShell/EbOs_Cfg.h"
     },
     {
       "scope": "integration",
-      "path": "Conf/EbOs/EbOs_Cfg.c"
+      "path": "Conf/EbOs/OsShell/EbOs_Cfg.c"
     }
   ]
 }

@@ -4,7 +4,7 @@ R26-11 requirements and service contracts
 =========================================
 
 This page defines the selected standard interface and its trace context. The
-nine services declared in ``Os.h`` are **specified, not implemented**. The
+nine services declared in ``Os/Os.h`` are **specified, not implemented**. The
 working ``EbOs_*`` ESP-IDF adapter remains a separate NeoTech extension profile.
 
 Why requirements and specification are separate
@@ -67,6 +67,14 @@ use concise descriptions rather than reproducing complete standard clauses.
 Standard-service declarations are marked as contracts without implementations.
 Custom native-adapter functions use independently defined ``NEO_EBOS_*`` IDs.
 Formatting or adding a trace marker does not change a requirement's status.
+
+Standard contracts live under ``Os``; the native-helper interface lives under
+``OsShell``; its ESP-IDF implementation lives under ``Os_EspIdf``. The project
+mirrors native shell ownership under ``Conf/EbOs/OsShell``. These groups follow
+MMD's responsibility split without copying supplier-specific package names or
+creating unused groups. Package-level requirements and verification remain
+shared. Exported include directories preserve ``#include "Os.h"`` and
+``#include "EbOs.h"`` for callers.
 
 .. _ebos-service-catalog:
 
@@ -207,7 +215,7 @@ it cannot compile the new standard headers. EbOs does not add a fallback typedef
 
 The profile chooses ``uint32`` for task IDs and application modes and ``uint8``
 for task-state storage. State codes, ID sentinels and default-mode values are
-documented implementation choices in ``Os_Types.h``; they are not claims that
+documented implementation choices in ``Os/Os_Types.h``; they are not claims that
 AUTOSAR requires those widths or all numeric representations. ``DONOTCARE`` has
 the R26-11 ``AppModeType`` context recorded by ``SWS_Os_91007``. A constant does
 not implement multicore startup or mode reconciliation. The published type
@@ -248,12 +256,12 @@ The PDFs are not redistributed; normal CI validates the reviewed catalog offline
      - Status
      - Evidence
    * - ``SRS_Os_00097`` -> ``SWS_Os_00001``
-     - Selected OSEK task/lifecycle service declarations in ``Os.h``.
+     - Selected OSEK task/lifecycle service declarations in ``Os/Os.h``.
      - Specified; runtime not implemented.
      - Origin/signature catalog and compile-only interface checks. No runtime
        conformance evidence.
    * - ``SWS_Os_91007``
-     - ``AppModeType`` / ``DONOTCARE`` context in ``Os_Types.h``.
+     - ``AppModeType`` / ``DONOTCARE`` context in ``Os/Os_Types.h``.
      - Representation specified; multicore startup not implemented.
      - Type/constant checks only.
    * - ``SWS_Os_00093``, ``SWS_Os_00424``, ``SWS_Os_00425``,
@@ -301,7 +309,7 @@ The PDFs are not redistributed; normal CI validates the reviewed catalog offline
      - Standard-contract profile representations.
      - Specified; compile-only type/signature checks.
    * - ``NEO_EBOS_CFG_00001`` / ``NEO_EBOS_CFG_00002``
-     - Integration-owned task policy and runnable wiring in ``Conf/EbOs``.
+     - Integration-owned task policy and runnable wiring in ``Conf/EbOs/OsShell``.
      - Implemented; camera backend/project-wiring regression. These are
        project configuration requirements, not AUTOSAR-issued OS requirements.
 
