@@ -5,6 +5,7 @@ import os
 from pathlib import Path
 import shutil
 import subprocess
+import sys
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -25,6 +26,11 @@ def main():
     flags = ["-std=c11", "-Wall", "-Wextra", "-Werror", "-pedantic", "-g"]
     if args.sanitize:
         flags += ["-fsanitize=address,undefined", "-fno-omit-frame-pointer", "-no-pie"]
+    subprocess.run([cc, *flags, "-I" + str(ROOT / "test/fakes"), "-I" + str(ROOT),
+                    "-fsyntax-only", str(ROOT / "test/test_os_contracts.c")],
+                   env=environment, check=True)
+    print("PASS R26-11 declaration signatures and profile types", flush=True)
+    subprocess.run([sys.executable, str(ROOT / "test/test_traceability.py")], check=True)
     for cores in (1, 2):
         binary = output / (f"ebos-{cores}" + (".exe" if os.name == "nt" else ""))
         subprocess.run([cc, *flags, f"-DconfigNUMBER_OF_CORES={cores}",

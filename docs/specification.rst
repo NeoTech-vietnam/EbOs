@@ -14,7 +14,7 @@ Specification of EbOs
    * - Owner
      - EbOs maintainers
    * - Status
-     - Development profile: configured native tasks and camera-worker pilot
+     - Implemented native-task adapter plus specified-only R26-11 OS interfaces
    * - Source selection
      - This documentation follows the source revision containing it. A product's
        ``packages.yml`` and resolved commit report determine the consumed revision.
@@ -36,6 +36,10 @@ Specification of EbOs
      - 1.1
      - Reusable task configuration, cooperative retirement, diagnostics and
        AUTOSAR R25-11 compatibility profile.
+   * - 2026-11-28
+     - 1.2
+     - R26-11 requirements/catalog, standard interface declarations and
+       NeoTech source-level traceability. Native runtime behavior is preserved.
 
 .. contents:: Contents
    :local:
@@ -48,6 +52,11 @@ EbOs provides task delays, opaque non-recursive mutexes, and configured native
 tasks backed by ESP-IDF FreeRTOS. It reuses the kernel rather than implementing
 a scheduler. A configured native task is a persistent thread; it is not an
 AUTOSAR basic task with activation and termination semantics.
+
+``Os.h`` and ``Os_Types.h`` separately declare the selected standard task and
+lifecycle profile. All nine services are **specified, not implemented**. Existing
+``EbOs_*`` functions remain NeoTech extensions and are not substitutes for those
+services. See :ref:`the requirements and service catalog <ebos-requirements>`.
 
 The first consumer is NeoCam's camera worker. Camera behavior stays in CamPipe,
 task policy and wiring belong to the product, and EbOs contains no product
@@ -73,8 +82,9 @@ entry-function references. HTTP and Wi-Fi execution are outside this pilot.
 
 * `NeoCam architecture and adaptation profile <https://neotech-vietnam.github.io/neocam_csw/architecture/architecture.html>`__
 * `NeoCam runtime reference <https://neotech-vietnam.github.io/neocam_csw/operations/runtime.html>`__
-* `AUTOSAR Classic R25-11, Specification of Operating System, Document 34 <https://www.autosar.org/fileadmin/standards/R25-11/CP/AUTOSAR_CP_SWS_OS.pdf>`__:
-  sections 7.9.21 (resources) and 10.2.32 (task configuration).
+* `AUTOSAR Classic R26-11, Requirements on Operating System, Document 8 <https://www.autosar.org/fileadmin/standards/R26-11/CP/AUTOSAR_CP_RS_OS.pdf>`__.
+* `AUTOSAR Classic R26-11, Specification of Operating System, Document 34 <https://www.autosar.org/fileadmin/standards/R26-11/CP/AUTOSAR_CP_SWS_OS.pdf>`__.
+* `OSEK/VDX Operating System Specification 2.2.3 <https://www.osek-vdx.org/mirror/os223.pdf>`__.
 * `ESP-IDF 6.0.1 FreeRTOS <https://docs.espressif.com/projects/esp-idf/en/v6.0.1/esp32s3/api-reference/system/freertos_idf.html>`__.
 * `ESP-IDF application entry point <https://docs.espressif.com/projects/esp-idf/en/v6.0.1/esp32s3/api-reference/system/freertos.html#application-entry-point>`__.
 
@@ -113,26 +123,35 @@ entry-function references. HTTP and Wi-Fi execution are outside this pilot.
 source/include metadata. Read these from the same checkout revision as this
 document. Product values and entry bindings live outside the module.
 
+``Os.h`` declares the standard service contracts; ``Os_Types.h`` supplies their
+portable types and profile constants. Neither header adds runtime service
+implementations. The machine-readable source/requirement catalog is
+``requirements/traceability.json`` in this module repository.
+
 6 Requirements traceability
 ---------------------------
 
-.. list-table:: Requirements traceability
+The complete :ref:`trace matrix <ebos-trace-matrix>` distinguishes standard
+interface context from implemented NeoTech behavior. The summary below describes
+the working adapter; its IDs are not AUTOSAR-issued requirements.
+
+.. list-table:: Implemented adapter requirements
    :header-rows: 1
 
    * - Requirement
      - Description
      - Satisfied by
      - Verification evidence
-   * - ``NEOCAM-SWS-EbOs-001``
+   * - ``NEO_EBOS_00001`` / ``NEO_EBOS_00002``
      - Provide bounded waits and an explicit indefinite mutex wait.
      - :ref:`Mutex and delay behavior <sws-ebos-mutex>`
      - ``EbOs_EspIdf.c``. Portable integration tests use a backend fake.
-   * - Configured native task contract
+   * - ``NEO_EBOS_00007`` / ``NEO_EBOS_00012``
      - Validate project configuration and create opaque native tasks without
        product-specific dependencies.
      - :ref:`Configured task behavior <sws-ebos-tasks>`
      - Module tests compile the native adapter against a controlled backend.
-   * - Cooperative retirement contract
+   * - ``NEO_EBOS_00008``
      - Preserve an unfinished task on timeout and retire only a completed,
        suspended native task.
      - :ref:`Configured task behavior <sws-ebos-tasks>`
@@ -471,13 +490,15 @@ same source revision are authoritative for exact parameter types.
 
 .. _sws-ebos-compatibility:
 
-12 AUTOSAR R25-11 compatibility profile
+12 AUTOSAR R26-11 compatibility profile
 ---------------------------------------
 
 This is a staged adaptation profile, not a declaration of AUTOSAR OS conformance.
-The selected reference is Classic Platform R25-11, Specification of Operating
-System (Document 34). No unsupported AUTOSAR service is exported under a name
-that would imply its standard semantics are present.
+The selected references are Classic Platform R26-11 OS requirements (Document 8)
+and specification (Document 34). The selected nine standard services have
+declarations and documented contracts only. They have no runtime implementation,
+no success stubs and no aliases to the native adapter. The catalog explicitly
+marks them **specified, not implemented**.
 
 .. list-table:: Compatibility matrix
    :header-rows: 1
@@ -486,19 +507,19 @@ that would imply its standard semantics are present.
    * - Concept / reference
      - Status in this milestone
      - Difference or required future evidence
-   * - Configured tasks; OS section 10.2.32
+   * - Configured native tasks
      - Typed C configuration and native persistent tasks
      - Stack, priority, affinity and entry are configured; AUTOSAR basic/extended
        task state and activation semantics are not implemented.
    * - Basic task activation / termination
-     - Not implemented
-     - Specify activation limits, pending requests, termination and scheduling
-       semantics before adding ``ActivateTask`` or ``TerminateTask``.
+     - Standard interfaces specified; runtime not implemented
+     - ``ActivateTask``, ``TerminateTask`` and related core contracts are declared
+       separately from dynamic native-task creation and joining.
    * - Extended-task events
      - Not implemented
      - Preserve wait-mask matching, retained flags and explicit clearing;
        notification counting is not automatically event semantics.
-   * - Resources; OS section 7.9.21
+   * - Resources
      - Task mutexes with FreeRTOS priority inheritance
      - AUTOSAR resources use priority ceiling and same-core rules. Mutex APIs
        are not presented as ``GetResource`` / ``ReleaseResource``.
@@ -507,8 +528,9 @@ that would imply its standard semantics are present.
      - Future native timer callbacks release work to tasks; specify counter
        ranges, expiry, overflow and missed-release behavior separately.
    * - OS startup
-     - ESP-IDF starts the kernel before product entry
-     - Managed-object initialization does not implement ``StartOS``.
+     - Standard lifecycle interfaces specified; runtime not implemented
+     - ESP-IDF starts the kernel before product entry. Native object
+       initialization does not implement ``StartOS`` or ``ShutdownOS``.
    * - OS applications, memory/timing protection and scalability classes
      - Not implemented
      - MMD's SC3 selection does not transfer to ESP-IDF. Full compatibility
@@ -546,3 +568,8 @@ stack sampling and retained heap. Follow ``test/README.md`` for build, flash and
 monitor commands. Hardware evidence must include
 ``PASS EBOS_DUAL_CORE_LIFECYCLE`` from the monitor and a separate normal NeoCam
 camera-behavior check. Building the app alone does not satisfy this gate.
+
+Standard-interface checks validate declaration signatures, independent header
+compilation and source trace/catalog consistency. They are compile-only checks:
+they do not call or link the nine unimplemented services and are not runtime
+AUTOSAR conformance evidence.

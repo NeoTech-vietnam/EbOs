@@ -8,6 +8,7 @@ owns its concrete configuration and task wiring; this module owns mechanisms.
    :maxdepth: 2
 
    specification
+   requirements
 
 Build and update the documentation
 ----------------------------------

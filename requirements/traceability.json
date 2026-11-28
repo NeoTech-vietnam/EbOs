@@ -1,0 +1,528 @@
+{
+  "schema_version": 1,
+  "release": "R26-11",
+  "profile": "core task/lifecycle declarations plus separately implemented NeoTech native-task extensions",
+  "standard_runtime_implemented": false,
+  "documents": {
+    "AUTOSAR_RS_OS": {
+      "title": "Requirements on Operating System",
+      "release": "R26-11",
+      "uid": 8,
+      "pages": 40,
+      "published": "2026-11-26",
+      "url": "https://www.autosar.org/fileadmin/standards/R26-11/CP/AUTOSAR_CP_RS_OS.pdf",
+      "sha256": "0dcb2466328a40c72e711e2a21ebe358eefd865921055889d2dc2bc234261f5f",
+      "cache_file": "RS_OS.pdf"
+    },
+    "AUTOSAR_SWS_OS": {
+      "title": "Specification of Operating System",
+      "release": "R26-11",
+      "uid": 34,
+      "pages": 385,
+      "published": "2026-11-26",
+      "url": "https://www.autosar.org/fileadmin/standards/R26-11/CP/AUTOSAR_CP_SWS_OS.pdf",
+      "sha256": "6ae23b3bd96394ab0473829d84c75381a86fdb91d8a33809b4171d0267666bf1",
+      "cache_file": "SWS_OS.pdf"
+    },
+    "OSEK_OS_223": {
+      "title": "OSEK/VDX Operating System",
+      "release": "2.2.3",
+      "url": "https://www.osek-vdx.org/mirror/os223.pdf",
+      "verification": "Original-publisher service clauses checked during interface authoring; canonical PDF is not redistributed."
+    }
+  },
+  "requirements": {
+    "SRS_Os_00097": {
+      "origin": "AUTOSAR",
+      "document": "AUTOSAR_RS_OS",
+      "page": 13,
+      "section": "4.2.2",
+      "summary": "Preserve OSEK OS API compatibility so existing users can migrate.",
+      "status": "context_only_not_satisfied_by_declarations"
+    },
+    "SWS_Os_00001": {
+      "origin": "AUTOSAR",
+      "document": "AUTOSAR_SWS_OS",
+      "page": 37,
+      "section": "7.1.2",
+      "summary": "Provide the OSEK-compatible OS interface; this contract does not establish runtime compatibility.",
+      "status": "context_only_not_satisfied_by_declarations",
+      "upstream": [
+        "SRS_Os_00097",
+        "SRS_BSW_00336",
+        "SRS_BSW_00345"
+      ],
+      "upstream_scope_note": "The BSW-general parents are external references, not independently verified or claimed by this OS-only profile."
+    },
+    "SWS_Os_00093": {
+      "origin": "AUTOSAR",
+      "document": "AUTOSAR_SWS_OS",
+      "page": 81,
+      "section": "7.7.3.4",
+      "summary": "Ignore non-interrupt OS services while interrupts are disabled or suspended; StatusType services report E_OS_DISABLEDINT.",
+      "status": "context_only_not_satisfied_by_declarations"
+    },
+    "SWS_Os_00424": {
+      "origin": "AUTOSAR",
+      "document": "AUTOSAR_SWS_OS",
+      "page": 39,
+      "section": "7.1.2.2",
+      "summary": "The initial OS startup call does not return.",
+      "status": "context_only_not_satisfied_by_declarations"
+    },
+    "SWS_Os_00425": {
+      "origin": "AUTOSAR",
+      "document": "AUTOSAR_SWS_OS",
+      "page": 39,
+      "section": "7.1.2.2",
+      "summary": "After a returning shutdown hook, interrupts are disabled and execution remains in an endless loop.",
+      "status": "context_only_not_satisfied_by_declarations"
+    },
+    "SWS_Os_00612": {
+      "origin": "AUTOSAR",
+      "document": "AUTOSAR_SWS_OS",
+      "page": 108,
+      "section": "7.9.15",
+      "summary": "In extended status, task termination or chaining while holding a spinlock reports E_OS_SPINLOCK.",
+      "status": "context_only_not_satisfied_by_declarations"
+    },
+    "SWS_Os_00617": {
+      "origin": "AUTOSAR",
+      "document": "AUTOSAR_SWS_OS",
+      "page": 109,
+      "section": "7.9.17",
+      "summary": "ShutdownOS affects the calling core.",
+      "status": "context_only_not_satisfied_by_declarations"
+    },
+    "SWS_Os_00624": {
+      "origin": "AUTOSAR",
+      "document": "AUTOSAR_SWS_OS",
+      "page": 111,
+      "section": "7.9.20",
+      "summary": "Schedule checks spinlock ownership and refuses to deschedule with E_OS_SPINLOCK in extended status.",
+      "status": "context_only_not_satisfied_by_declarations"
+    },
+    "SWS_Os_91007": {
+      "origin": "AUTOSAR",
+      "document": "AUTOSAR_SWS_OS",
+      "page": 160,
+      "section": "8.1.1",
+      "summary": "AppModeType includes DONOTCARE for inheriting an application mode from another core.",
+      "status": "context_only_not_satisfied_by_declarations"
+    },
+    "SWS_Os_91025": {
+      "origin": "AUTOSAR",
+      "document": "AUTOSAR_SWS_OS",
+      "page": 141,
+      "section": "7.15",
+      "summary": "OS development-error values in the AUTOSAR extension set are assigned by the implementation.",
+      "status": "context_only_not_satisfied_by_declarations"
+    },
+    "NEO_EBOS_00001": {
+      "origin": "NeoTech",
+      "summary": "Validate output, create an opaque native mutex, and clean allocation failure.",
+      "status": "implemented",
+      "verification": [
+        "test/test_ebos.c"
+      ]
+    },
+    "NEO_EBOS_00002": {
+      "origin": "NeoTech",
+      "summary": "Provide nonrecursive task-context locking with bounded or indefinite waits.",
+      "status": "implemented",
+      "verification": [
+        "test/test_ebos.c"
+      ]
+    },
+    "NEO_EBOS_00003": {
+      "origin": "NeoTech",
+      "summary": "Release an owned mutex; a null handle is ignored.",
+      "status": "implemented",
+      "verification": [
+        "test/test_ebos.c"
+      ]
+    },
+    "NEO_EBOS_00004": {
+      "origin": "NeoTech",
+      "summary": "Delete a quiescent mutex and release its wrapper.",
+      "status": "implemented",
+      "verification": [
+        "test/test_ebos.c"
+      ]
+    },
+    "NEO_EBOS_00005": {
+      "origin": "NeoTech",
+      "summary": "Convert finite milliseconds to rounded-up saturated native ticks.",
+      "status": "implemented",
+      "verification": [
+        "test/test_ebos.c"
+      ]
+    },
+    "NEO_EBOS_00006": {
+      "origin": "NeoTech",
+      "summary": "Delay for exactly one actual scheduler tick.",
+      "status": "implemented",
+      "verification": [
+        "test/test_ebos.c"
+      ]
+    },
+    "NEO_EBOS_00007": {
+      "origin": "NeoTech",
+      "summary": "Validate project task configuration and safely publish a dynamically allocated native task.",
+      "status": "implemented",
+      "verification": [
+        "test/test_ebos.c"
+      ]
+    },
+    "NEO_EBOS_00008": {
+      "origin": "NeoTech",
+      "summary": "Retire only after cooperative completion and confirmed native suspension; timeout preserves retry.",
+      "status": "implemented",
+      "verification": [
+        "test/test_ebos.c"
+      ]
+    },
+    "NEO_EBOS_00009": {
+      "origin": "NeoTech",
+      "summary": "Report minimum unused stack, including suspension, before serialized deletion.",
+      "status": "implemented",
+      "verification": [
+        "test/test_ebos.c"
+      ]
+    },
+    "NEO_EBOS_00010": {
+      "origin": "NeoTech",
+      "summary": "Keep native mutex handles opaque.",
+      "status": "implemented",
+      "verification": [
+        "test/test_ebos.c"
+      ]
+    },
+    "NEO_EBOS_00011": {
+      "origin": "NeoTech",
+      "summary": "Keep managed native task handles opaque.",
+      "status": "implemented",
+      "verification": [
+        "test/test_ebos.c"
+      ]
+    },
+    "NEO_EBOS_00012": {
+      "origin": "NeoTech",
+      "summary": "Accept portable, project-supplied native-task configuration.",
+      "status": "implemented",
+      "verification": [
+        "test/test_ebos.c"
+      ]
+    },
+    "NEO_EBOS_00013": {
+      "origin": "NeoTech",
+      "summary": "Define an explicit indefinite-wait sentinel.",
+      "status": "implemented",
+      "verification": [
+        "test/test_ebos.c"
+      ]
+    },
+    "NEO_EBOS_00014": {
+      "origin": "NeoTech",
+      "summary": "Define the unpinned affinity sentinel.",
+      "status": "implemented",
+      "verification": [
+        "test/test_ebos.c"
+      ]
+    },
+    "NEO_EBOS_OS_TYPES": {
+      "origin": "NeoTech",
+      "summary": "Choose portable C representations, task states, sentinels and profile constants for the declaration-only OS contract. This is not an AUTOSAR type-conformance claim.",
+      "status": "declarations_verified",
+      "verification": [
+        "test/test_os_contracts.c"
+      ]
+    },
+    "NEO_EBOS_CFG_00001": {
+      "origin": "NeoTech",
+      "summary": "The integrating project owns camera task stack, priority and affinity policy.",
+      "status": "implemented_in_integration",
+      "verification": [
+        "CamPipe/test/test_cam_pipe_backend.c"
+      ]
+    },
+    "NEO_EBOS_CFG_00002": {
+      "origin": "NeoTech",
+      "summary": "The project binds CamPipe runnable execution with one native tick per continuing iteration.",
+      "status": "implemented_in_integration",
+      "verification": [
+        "CamPipe/test/test_cam_pipe_backend.c"
+      ]
+    }
+  },
+  "standard_services": {
+    "ActivateTask": {
+      "header": "Os.h",
+      "signature": "StatusType ActivateTask(TaskType TaskID);",
+      "origin_document": "OSEK_OS_223",
+      "origin_clause": "13.2.3.1",
+      "traces": [
+        "SWS_Os_00001",
+        "SRS_Os_00097"
+      ],
+      "file_context": [
+        "SWS_Os_00093"
+      ],
+      "status": "specified_not_implemented",
+      "verification": [
+        "test/test_os_contracts.c (compile only)"
+      ],
+      "runtime_verification": null
+    },
+    "TerminateTask": {
+      "header": "Os.h",
+      "signature": "StatusType TerminateTask(void);",
+      "origin_document": "OSEK_OS_223",
+      "origin_clause": "13.2.3.2",
+      "traces": [
+        "SWS_Os_00001",
+        "SRS_Os_00097",
+        "SWS_Os_00612"
+      ],
+      "file_context": [
+        "SWS_Os_00093"
+      ],
+      "status": "specified_not_implemented",
+      "verification": [
+        "test/test_os_contracts.c (compile only)"
+      ],
+      "runtime_verification": null
+    },
+    "ChainTask": {
+      "header": "Os.h",
+      "signature": "StatusType ChainTask(TaskType TaskID);",
+      "origin_document": "OSEK_OS_223",
+      "origin_clause": "13.2.3.3",
+      "traces": [
+        "SWS_Os_00001",
+        "SRS_Os_00097",
+        "SWS_Os_00612"
+      ],
+      "file_context": [
+        "SWS_Os_00093"
+      ],
+      "status": "specified_not_implemented",
+      "verification": [
+        "test/test_os_contracts.c (compile only)"
+      ],
+      "runtime_verification": null
+    },
+    "Schedule": {
+      "header": "Os.h",
+      "signature": "StatusType Schedule(void);",
+      "origin_document": "OSEK_OS_223",
+      "origin_clause": "13.2.3.4",
+      "traces": [
+        "SWS_Os_00001",
+        "SRS_Os_00097",
+        "SWS_Os_00624"
+      ],
+      "file_context": [
+        "SWS_Os_00093"
+      ],
+      "status": "specified_not_implemented",
+      "verification": [
+        "test/test_os_contracts.c (compile only)"
+      ],
+      "runtime_verification": null
+    },
+    "GetTaskID": {
+      "header": "Os.h",
+      "signature": "StatusType GetTaskID(TaskRefType TaskID);",
+      "origin_document": "OSEK_OS_223",
+      "origin_clause": "13.2.3.5",
+      "traces": [
+        "SWS_Os_00001",
+        "SRS_Os_00097"
+      ],
+      "file_context": [
+        "SWS_Os_00093"
+      ],
+      "status": "specified_not_implemented",
+      "verification": [
+        "test/test_os_contracts.c (compile only)"
+      ],
+      "runtime_verification": null
+    },
+    "GetTaskState": {
+      "header": "Os.h",
+      "signature": "StatusType GetTaskState(TaskType TaskID, TaskStateRefType State);",
+      "origin_document": "OSEK_OS_223",
+      "origin_clause": "13.2.3.6",
+      "traces": [
+        "SWS_Os_00001",
+        "SRS_Os_00097"
+      ],
+      "file_context": [
+        "SWS_Os_00093"
+      ],
+      "status": "specified_not_implemented",
+      "verification": [
+        "test/test_os_contracts.c (compile only)"
+      ],
+      "runtime_verification": null
+    },
+    "StartOS": {
+      "header": "Os.h",
+      "signature": "void StartOS(AppModeType Mode);",
+      "origin_document": "OSEK_OS_223",
+      "origin_clause": "13.7.2.2",
+      "traces": [
+        "SWS_Os_00001",
+        "SRS_Os_00097",
+        "SWS_Os_00424"
+      ],
+      "file_context": [
+        "SWS_Os_00093"
+      ],
+      "status": "specified_not_implemented",
+      "verification": [
+        "test/test_os_contracts.c (compile only)"
+      ],
+      "runtime_verification": null
+    },
+    "ShutdownOS": {
+      "header": "Os.h",
+      "signature": "void ShutdownOS(StatusType Error);",
+      "origin_document": "OSEK_OS_223",
+      "origin_clause": "13.7.2.3",
+      "traces": [
+        "SWS_Os_00001",
+        "SRS_Os_00097",
+        "SWS_Os_00425",
+        "SWS_Os_00617"
+      ],
+      "file_context": [
+        "SWS_Os_00093"
+      ],
+      "status": "specified_not_implemented",
+      "verification": [
+        "test/test_os_contracts.c (compile only)"
+      ],
+      "runtime_verification": null
+    },
+    "GetActiveApplicationMode": {
+      "header": "Os.h",
+      "signature": "AppModeType GetActiveApplicationMode(void);",
+      "origin_document": "OSEK_OS_223",
+      "origin_clause": "13.7.2.1",
+      "traces": [
+        "SWS_Os_00001",
+        "SRS_Os_00097"
+      ],
+      "file_context": [
+        "SWS_Os_00093"
+      ],
+      "status": "specified_not_implemented",
+      "verification": [
+        "test/test_os_contracts.c (compile only)"
+      ],
+      "runtime_verification": null
+    }
+  },
+  "extensions": {
+    "EbOs_MutexCreate": {
+      "header": "EbOs.h",
+      "trace": "NEO_EBOS_00001",
+      "status": "implemented",
+      "verification": [
+        "test/test_ebos.c"
+      ]
+    },
+    "EbOs_MutexLock": {
+      "header": "EbOs.h",
+      "trace": "NEO_EBOS_00002",
+      "status": "implemented",
+      "verification": [
+        "test/test_ebos.c"
+      ]
+    },
+    "EbOs_MutexUnlock": {
+      "header": "EbOs.h",
+      "trace": "NEO_EBOS_00003",
+      "status": "implemented",
+      "verification": [
+        "test/test_ebos.c"
+      ]
+    },
+    "EbOs_MutexDelete": {
+      "header": "EbOs.h",
+      "trace": "NEO_EBOS_00004",
+      "status": "implemented",
+      "verification": [
+        "test/test_ebos.c"
+      ]
+    },
+    "EbOs_Delay": {
+      "header": "EbOs.h",
+      "trace": "NEO_EBOS_00005",
+      "status": "implemented",
+      "verification": [
+        "test/test_ebos.c"
+      ]
+    },
+    "EbOs_DelayOneTick": {
+      "header": "EbOs.h",
+      "trace": "NEO_EBOS_00006",
+      "status": "implemented",
+      "verification": [
+        "test/test_ebos.c"
+      ]
+    },
+    "EbOs_TaskCreate": {
+      "header": "EbOs.h",
+      "trace": "NEO_EBOS_00007",
+      "status": "implemented",
+      "verification": [
+        "test/test_ebos.c"
+      ]
+    },
+    "EbOs_TaskJoinAndDelete": {
+      "header": "EbOs.h",
+      "trace": "NEO_EBOS_00008",
+      "status": "implemented",
+      "verification": [
+        "test/test_ebos.c"
+      ]
+    },
+    "EbOs_TaskGetStackMinFree": {
+      "header": "EbOs.h",
+      "trace": "NEO_EBOS_00009",
+      "status": "implemented",
+      "verification": [
+        "test/test_ebos.c"
+      ]
+    }
+  },
+  "source_files": [
+    {
+      "scope": "module",
+      "path": "EbOs.h"
+    },
+    {
+      "scope": "module",
+      "path": "EbOs_EspIdf.c"
+    },
+    {
+      "scope": "module",
+      "path": "Os.h"
+    },
+    {
+      "scope": "module",
+      "path": "Os_Types.h"
+    },
+    {
+      "scope": "integration",
+      "path": "Conf/EbOs/EbOs_Cfg.h"
+    },
+    {
+      "scope": "integration",
+      "path": "Conf/EbOs/EbOs_Cfg.c"
+    }
+  ]
+}

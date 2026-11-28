@@ -1,3 +1,58 @@
+/*<NeoTechHead>
+ *************************************************************************
+ *                              NeoTech
+ *************************************************************************
+ *
+ * /   / /////  ///  ///// /////  ///  /   /
+ * //  / /     /   /   /   /     /   / /   /
+ * / / / ///   /   /   /   ///   /     /////
+ * /  // /     /   /   /   /     /   / /   /
+ * /   / /////  ///    /   /////  ///  /   /
+ *
+ *************************************************************************
+ * Administrative Information
+ *************************************************************************
+ *
+ * $Filename__:EbOs_EspIdf.c$
+ *
+ * $Author____:Nguyen Ba Vu Thach$
+ *
+ * $Function__:ESP-IDF implementation of NeoTech native OS extensions.$
+ *
+ *************************************************************************
+ * $Domain____:NeoTech$
+ * $User______:Nguyen Ba Vu Thach$
+ * $Date______:28.11.2026$
+ * $Class_____:EbOs$
+ * $Name______:EbOs_EspIdf$
+ * $Variant___:1.0.0$
+ * $Revision__:3$
+ * $Type______:C$
+ * $State_____:PROTOTYPE$
+ *
+ *************************************************************************
+ * List Of Changes
+ *
+ * $History
+ *
+ * 1.0.0; 1     21.11.2026 Nguyen Ba Vu Thach
+ *   Initial independent module with mutex and delay interfaces.
+ * 1.0.0; 2     28.11.2026 Nguyen Ba Vu Thach
+ *   Add configured native tasks and cooperative retirement.
+ * 1.0.0; 3     28.11.2026 Nguyen Ba Vu Thach
+ *   Apply NeoTech source layout and extension requirement trace comments.
+ *
+ * $
+ *
+ *************************************************************************
+</NeoTechHead>*/
+
+/*
+ **********************************************************************************************************************
+ * Includes
+ **********************************************************************************************************************
+ */
+
 #include "EbOs.h"
 
 #include "esp_heap_caps.h"
@@ -8,11 +63,33 @@
 #include <stdatomic.h>
 #include <stdbool.h>
 
-struct EbOs_Mutex {
+/*
+ **********************************************************************************************************************
+ * Defines / Macros
+ **********************************************************************************************************************
+ */
+
+
+/*
+ **********************************************************************************************************************
+ * Local types
+ **********************************************************************************************************************
+ */
+
+/** @brief   TRACE[NEO_EBOS_00010]
+ *  @details Private native representation of the opaque mutex handle.
+ */
+struct EbOs_Mutex
+{
     SemaphoreHandle_t handle;
 };
 
-struct EbOs_Task {
+/** @brief   TRACE[NEO_EBOS_00011]
+ *  @details Private task metadata initialized before native task creation.
+ *           Release/acquire completion publication protects the recorded stack minimum.
+ */
+struct EbOs_Task
+{
     TaskHandle_t handle;
     void (*entry)(void *argument);
     void *argument;
@@ -20,56 +97,45 @@ struct EbOs_Task {
     uint32 final_stack_min_free;
 };
 
+/*
+ **********************************************************************************************************************
+ * Static variables
+ **********************************************************************************************************************
+ */
+
+
+/*
+ **********************************************************************************************************************
+ * Static function prototypes
+ **********************************************************************************************************************
+ */
+
+static TickType_t ticks_for(uint32 ms);
+static void task_entry(void *argument);
+
+/*
+ **********************************************************************************************************************
+ * Local functions
+ **********************************************************************************************************************
+ */
+
+/** @brief   TRACE[NEO_EBOS_00005]
+ *  @details Converts milliseconds to finite ticks with upward rounding and saturation.
+ *  @param[in] ms Finite duration in milliseconds.
+ *  @return  Finite tick count; zero for a zero duration.
+ */
 static TickType_t ticks_for(uint32 ms)
 {
     uint64 ticks = ((uint64)ms * configTICK_RATE_HZ + 999U) / 1000U;
     return ticks >= portMAX_DELAY ? portMAX_DELAY - 1U : (TickType_t)ticks;
 }
 
-Neo_StatusType EbOs_MutexCreate(EbOs_MutexType *out)
-{
-    if (out == NULL_PTR) return NEO_E_PARAM;
-    *out = NULL_PTR;
-    EbOs_MutexType mutex = heap_caps_calloc(1, sizeof(*mutex), MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
-    if (mutex == NULL_PTR) return NEO_E_MEMORY;
-    mutex->handle = xSemaphoreCreateMutex();
-    if (mutex->handle == NULL_PTR) {
-        heap_caps_free(mutex);
-        return NEO_E_MEMORY;
-    }
-    *out = mutex;
-    return NEO_OK;
-}
-
-Neo_StatusType EbOs_MutexLock(EbOs_MutexType mutex, uint32 timeout_ms)
-{
-    if (mutex == NULL_PTR) return NEO_E_PARAM;
-    TickType_t wait = timeout_ms == EBOS_WAIT_FOREVER ? portMAX_DELAY : ticks_for(timeout_ms);
-    return xSemaphoreTake(mutex->handle, wait) == pdTRUE ? NEO_OK : NEO_E_TIMEOUT;
-}
-
-void EbOs_MutexUnlock(EbOs_MutexType mutex)
-{
-    if (mutex != NULL_PTR) (void)xSemaphoreGive(mutex->handle);
-}
-
-void EbOs_MutexDelete(EbOs_MutexType mutex)
-{
-    if (mutex == NULL_PTR) return;
-    vSemaphoreDelete(mutex->handle);
-    heap_caps_free(mutex);
-}
-
-void EbOs_Delay(uint32 ms)
-{
-    vTaskDelay(ticks_for(ms));
-}
-
-void EbOs_DelayOneTick(void)
-{
-    vTaskDelay(1);
-}
-
+/** @brief   TRACE[NEO_EBOS_00008]
+ *  @details Calls product entry, records completion and parks until owner retirement.
+ *           No metadata or caller context is accessed after completion publication.
+ *  @param[in] argument Fully initialized private managed-task metadata.
+ *  @return  Does not return; the serialized owner deletes the suspended task.
+ */
 static void task_entry(void *argument)
 {
     EbOs_TaskType task = argument;
@@ -79,27 +145,130 @@ static void task_entry(void *argument)
     /* No metadata or caller context is accessed after publishing completion.
      * Join also waits for native suspension: completion alone does not prove
      * the other core has stopped using this task's stack. */
-    for (;;) vTaskSuspend(NULL);
+    for (;;)
+    {
+        vTaskSuspend(NULL);
+    }
 }
 
+
+/*
+ **********************************************************************************************************************
+ * Public functions
+ **********************************************************************************************************************
+ */
+
+/** @brief   TRACE[NEO_EBOS_00001]
+ *  @details Implements the NeoTech extension contract documented in EbOs.h.
+ */
+Neo_StatusType EbOs_MutexCreate(EbOs_MutexType *out)
+{
+    if (out == NULL_PTR)
+    {
+        return NEO_E_PARAM;
+    }
+    *out = NULL_PTR;
+    EbOs_MutexType mutex = heap_caps_calloc(1, sizeof(*mutex), MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
+    if (mutex == NULL_PTR)
+    {
+        return NEO_E_MEMORY;
+    }
+    mutex->handle = xSemaphoreCreateMutex();
+    if (mutex->handle == NULL_PTR)
+    {
+        heap_caps_free(mutex);
+        return NEO_E_MEMORY;
+    }
+    *out = mutex;
+    return NEO_OK;
+}
+
+/** @brief   TRACE[NEO_EBOS_00002]
+ *  @details Implements the NeoTech extension contract documented in EbOs.h.
+ */
+Neo_StatusType EbOs_MutexLock(EbOs_MutexType mutex, uint32 timeout_ms)
+{
+    if (mutex == NULL_PTR)
+    {
+        return NEO_E_PARAM;
+    }
+    TickType_t wait = timeout_ms == EBOS_WAIT_FOREVER ? portMAX_DELAY : ticks_for(timeout_ms);
+    return xSemaphoreTake(mutex->handle, wait) == pdTRUE ? NEO_OK : NEO_E_TIMEOUT;
+}
+
+/** @brief   TRACE[NEO_EBOS_00003]
+ *  @details Implements the NeoTech extension contract documented in EbOs.h.
+ */
+void EbOs_MutexUnlock(EbOs_MutexType mutex)
+{
+    if (mutex != NULL_PTR)
+    {
+        (void)xSemaphoreGive(mutex->handle);
+    }
+}
+
+/** @brief   TRACE[NEO_EBOS_00004]
+ *  @details Implements the NeoTech extension contract documented in EbOs.h.
+ */
+void EbOs_MutexDelete(EbOs_MutexType mutex)
+{
+    if (mutex == NULL_PTR)
+    {
+        return;
+    }
+    vSemaphoreDelete(mutex->handle);
+    heap_caps_free(mutex);
+}
+
+/** @brief   TRACE[NEO_EBOS_00005]
+ *  @details Implements the NeoTech extension contract documented in EbOs.h.
+ */
+void EbOs_Delay(uint32 ms)
+{
+    vTaskDelay(ticks_for(ms));
+}
+
+/** @brief   TRACE[NEO_EBOS_00006]
+ *  @details Implements the NeoTech extension contract documented in EbOs.h.
+ */
+void EbOs_DelayOneTick(void)
+{
+    vTaskDelay(1);
+}
+
+/** @brief   TRACE[NEO_EBOS_00007]
+ *  @details Implements the NeoTech extension contract documented in EbOs.h.
+ */
 Neo_StatusType EbOs_TaskCreate(const EbOs_TaskConfigType *config, void *argument, EbOs_TaskType *out)
 {
-    if (out == NULL_PTR) return NEO_E_PARAM;
+    if (out == NULL_PTR)
+    {
+        return NEO_E_PARAM;
+    }
     *out = NULL_PTR;
-    if (xPortInIsrContext()) return NEO_E_STATE;
+    if (xPortInIsrContext())
+    {
+        return NEO_E_STATE;
+    }
     if (config == NULL_PTR || config->name == NULL_PTR || config->name[0] == '\0' ||
         config->entry == NULL_PTR || config->stack_bytes < configMINIMAL_STACK_SIZE ||
         config->priority == 0U || config->priority >= configMAX_PRIORITIES ||
         config->core_affinity < EBOS_CORE_ANY || config->core_affinity >= configNUMBER_OF_CORES)
+    {
         return NEO_E_PARAM;
+    }
     EbOs_TaskType task = heap_caps_calloc(1, sizeof(*task), MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
-    if (task == NULL_PTR) return NEO_E_MEMORY;
+    if (task == NULL_PTR)
+    {
+        return NEO_E_MEMORY;
+    }
     task->entry = config->entry;
     task->argument = argument;
     atomic_init(&task->complete, false);
     BaseType_t core = config->core_affinity == EBOS_CORE_ANY ? tskNO_AFFINITY : config->core_affinity;
     if (xTaskCreatePinnedToCore(task_entry, config->name, config->stack_bytes, task,
-                              config->priority, &task->handle, core) != pdPASS) {
+                              config->priority, &task->handle, core) != pdPASS)
+    {
         heap_caps_free(task);
         return NEO_E_MEMORY;
     }
@@ -108,19 +277,37 @@ Neo_StatusType EbOs_TaskCreate(const EbOs_TaskConfigType *config, void *argument
     return NEO_OK;
 }
 
+/** @brief   TRACE[NEO_EBOS_00008]
+ *  @details Implements the NeoTech extension contract documented in EbOs.h.
+ */
 Neo_StatusType EbOs_TaskJoinAndDelete(EbOs_TaskType *value, uint32 timeout_ms)
 {
-    if (value == NULL_PTR) return NEO_E_PARAM;
-    if (xPortInIsrContext()) return NEO_E_STATE;
+    if (value == NULL_PTR)
+    {
+        return NEO_E_PARAM;
+    }
+    if (xPortInIsrContext())
+    {
+        return NEO_E_STATE;
+    }
     EbOs_TaskType task = *value;
-    if (task == NULL_PTR) return NEO_OK;
-    if (task->handle == xTaskGetCurrentTaskHandle()) return NEO_E_STATE;
+    if (task == NULL_PTR)
+    {
+        return NEO_OK;
+    }
+    if (task->handle == xTaskGetCurrentTaskHandle())
+    {
+        return NEO_E_STATE;
+    }
     const uint64 started = (uint64)esp_timer_get_time();
     const uint64 duration = (uint64)timeout_ms * 1000U;
     while (!atomic_load_explicit(&task->complete, memory_order_acquire) ||
-           eTaskGetState(task->handle) != eSuspended) {
+           eTaskGetState(task->handle) != eSuspended)
+    {
         if (timeout_ms != EBOS_WAIT_FOREVER && (uint64)esp_timer_get_time() - started >= duration)
+        {
             return NEO_E_TIMEOUT;
+        }
         vTaskDelay(1);
     }
     /* ESP-IDF 6.0.1 checks running-on-either-core before reporting eSuspended.
@@ -131,12 +318,24 @@ Neo_StatusType EbOs_TaskJoinAndDelete(EbOs_TaskType *value, uint32 timeout_ms)
     return NEO_OK;
 }
 
+/** @brief   TRACE[NEO_EBOS_00009]
+ *  @details Implements the NeoTech extension contract documented in EbOs.h.
+ */
 Neo_StatusType EbOs_TaskGetStackMinFree(EbOs_TaskType task, uint32 *out_bytes)
 {
-    if (out_bytes == NULL_PTR) return NEO_E_PARAM;
+    if (out_bytes == NULL_PTR)
+    {
+        return NEO_E_PARAM;
+    }
     *out_bytes = 0U;
-    if (xPortInIsrContext()) return NEO_E_STATE;
-    if (task == NULL_PTR) return NEO_E_PARAM;
+    if (xPortInIsrContext())
+    {
+        return NEO_E_STATE;
+    }
+    if (task == NULL_PTR)
+    {
+        return NEO_E_PARAM;
+    }
     uint32 native_minimum = (uint32)uxTaskGetStackHighWaterMark(task->handle);
     /* Parking itself may consume more stack than the entry did. The native
      * handle remains alive until serialized Join/Delete, so sample it too. */

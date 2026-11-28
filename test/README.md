@@ -13,6 +13,29 @@ From this repository, with a C11 compiler and sibling NeoContracts checkout:
 python test/run_host_tests.py
 ```
 
+This command also compiles all nine standard-service signatures without linking
+them and runs the offline trace checks. It does not execute any standard OS
+service. The existing native-task adapter remains the runtime implementation.
+
+To check project configuration comments as well, run:
+
+```text
+python test/test_traceability.py --integration <assembled-workspace>
+```
+
+The checker rejects unknown trace IDs, changed signatures, native aliases and
+false implementation claims. The catalog records exact R26-11 document URLs,
+SHA-256 digests and requirement pages. A reviewer with `pypdf` installed can
+place the official PDFs at `_build/standards/R26-11/RS_OS.pdf` and `SWS_OS.pdf`
+and verify the primary evidence:
+
+```text
+python test/test_traceability.py --source-cache _build/standards/R26-11
+```
+
+PDFs remain outside Git. Normal host tests and CI do not download standards or
+require `pypdf`; they validate the reviewed, versioned catalog offline.
+
 Use `--contracts <checkout>` when NeoContracts is elsewhere. On Linux,
 `--sanitize` enables address/undefined-behavior sanitizers. Host fakes do not
 prove cross-core context-switch or native task cleanup behavior.
