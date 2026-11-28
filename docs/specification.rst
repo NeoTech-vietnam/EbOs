@@ -14,7 +14,7 @@ Specification of EbOs
    * - Owner
      - EbOs maintainers
    * - Status
-     - Implemented native-task adapter plus specified-only R26-11 OS interfaces
+     - Implemented native helpers and selected R26-11 basic-task service profile
    * - Source selection
      - This documentation follows the source revision containing it. A product's
        ``packages.yml`` and resolved commit report determine the consumed revision.
@@ -44,6 +44,10 @@ Specification of EbOs
      - 1.3
      - Classify standard contracts, shell interfaces and platform code into
        MMD-style source groups; preserve behavior and requirement identifiers.
+   * - 2026-11-28
+     - 1.4
+     - Implement six configured basic-task services over ESP-IDF, with separate
+       project configuration, bounded activations and explicit profile limits.
 
 .. contents:: Contents
    :local:
@@ -57,10 +61,12 @@ tasks backed by ESP-IDF FreeRTOS. It reuses the kernel rather than implementing
 a scheduler. A configured native task is a persistent thread; it is not an
 AUTOSAR basic task with activation and termination semantics.
 
-``Os/Os.h`` and ``Os/Os_Types.h`` separately declare the selected standard task and
-lifecycle profile. All nine services are **specified, not implemented**. Existing
-``EbOs_*`` functions remain NeoTech extensions and are not substitutes for those
-services. See :ref:`the requirements and service catalog <ebos-requirements>`.
+``Os/Os.h`` and ``Os/Os_Types.h`` define a separate configured basic-task profile.
+Its six task services have an ESP-IDF implementation. ``StartOS``, ``ShutdownOS``
+and ``GetActiveApplicationMode`` remain specified, not implemented. Existing
+``EbOs_*`` native helpers are independent extensions; native thread creation is
+not configured task activation. See :ref:`the requirements and service catalog
+<ebos-requirements>` for the implemented profile and remaining standard gaps.
 
 The first consumer is NeoCam's camera worker. Camera behavior stays in CamPipe,
 task policy and wiring belong to the product, and EbOs contains no product
@@ -99,9 +105,15 @@ entry-function references. HTTP and Wi-Fi execution are outside this pilot.
 * Creation and deletion require serialized ownership and quiescent users.
 * Task creation, join/deletion and stack sampling have one serialized owner.
   Do not sample through a handle while another caller joins and deletes it.
-* A task entry returns after its module's cooperative stop request. EbOs
+* A native-helper task entry returns after its module's cooperative stop request. EbOs
   parks the native task and the owner retires it; no force-stop or resume
   operation is exposed. The entry must not delete or suspend itself.
+* Configured basic-task entries instead finish through ``TerminateTask`` or
+  ``ChainTask``. They are C-only, fully preemptive, nonblocking entries, with
+  distinct priorities on one explicitly pinned core.
+* Basic-task profile initialization/deinitialization is externally serialized
+  with all six task service calls. Project configuration is immutable and remains
+  alive until successful deinitialization.
 * ESP-IDF starts FreeRTOS before ``app_main``. EbOs does not call
   ``vTaskStartScheduler`` or ``vTaskEndScheduler``.
 
@@ -131,7 +143,9 @@ its root:
       Os/Os.h                 standard service declarations
       Os/Os_Types.h           standard contract types/profile values
       OsShell/EbOs.h          reusable native-helper interface
-      Os_EspIdf/EbOs_EspIdf.c  ESP-IDF implementation
+      OsShell/EbOs_Os.h       basic-task profile configuration/lifecycle
+      Os_EspIdf/EbOs_EspIdf.c  native-helper implementation
+      Os_EspIdf/Os_EspIdf.c   configured basic-task service implementation
       module.cmake            package source/include metadata
       docs/                   package documentation
       requirements/           reviewed trace catalog
@@ -139,13 +153,15 @@ its root:
 
 ``OsShell/EbOs.h`` declares the portable native-task/mutex interfaces and
 configuration types. ``Os_EspIdf/EbOs_EspIdf.c`` implements them using the SDK.
-``Os/Os.h`` and ``Os/Os_Types.h`` define the separate standard contract;
-neither adds runtime service implementations. ``module.cmake`` exports the
+``Os/Os.h`` and ``Os/Os_Types.h`` define the separate standard task contract;
+``Os_EspIdf/Os_EspIdf.c`` implements the six supported profile services using
+configuration types from ``OsShell/EbOs_Os.h``. ``module.cmake`` exports the
 classified include directories, so public include directives remain
 ``#include "EbOs.h"`` and ``#include "Os.h"``.
 
 Read source and documentation from the same revision. The product keeps native
-shell policy and entry bindings in ``Conf/EbOs/OsShell``. Package-level build
+shell policy and entry bindings in ``Conf/EbOs/OsShell`` and configured basic-task
+policy in ``Conf/EbOs/Os``. Package-level build
 metadata, tests and the machine-readable ``requirements/traceability.json``
 remain at the package root. No empty groups for unimplemented MMD features are
 introduced.
@@ -517,10 +533,10 @@ same source revision are authoritative for exact parameter types.
 
 This is a staged adaptation profile, not a declaration of AUTOSAR OS conformance.
 The selected references are Classic Platform R26-11 OS requirements (Document 8)
-and specification (Document 34). The selected nine standard services have
-declarations and documented contracts only. They have no runtime implementation,
-no success stubs and no aliases to the native adapter. The catalog explicitly
-marks them **specified, not implemented**.
+and specification (Document 34). The six task services have an implementation
+for the :ref:`basic-task profile <ebos-basic-task-profile>`. The three lifecycle
+services retain declarations only. The catalog records selected runtime evidence
+and keeps all AUTOSAR requirement statuses contextual or partial.
 
 .. list-table:: Compatibility matrix
    :header-rows: 1
@@ -531,12 +547,17 @@ marks them **specified, not implemented**.
      - Difference or required future evidence
    * - Configured native tasks
      - Typed C configuration and native persistent tasks
-     - Stack, priority, affinity and entry are configured; AUTOSAR basic/extended
-       task state and activation semantics are not implemented.
+     - Native-helper lifecycle remains separate from configured task activations.
+       The existing persistent camera worker stays in this profile.
    * - Basic task activation / termination
-     - Standard interfaces specified; runtime not implemented
-     - ``ActivateTask``, ``TerminateTask`` and related core contracts are declared
-       separately from dynamic native-task creation and joining.
+     - Six services implemented within a limited profile
+     - Fully preemptive basic C entries, one pinned core, unique priorities and
+       bounded running/queued activations. No equal-priority or non-preemptive
+       scheduling claim; native ISR calls rejected without category 2 dispatch.
+   * - Missing-end handling
+     - Entry retirement and optional NeoTech diagnostic
+     - Diagnostic precedes retirement but does not implement standard ErrorHook
+       or Pre/PostTaskHook. Resource/interrupt recovery remains outside scope.
    * - Extended-task events
      - Not implemented
      - Preserve wait-mask matching, retained flags and explicit clearing;
@@ -592,6 +613,42 @@ monitor commands. Hardware evidence must include
 camera-behavior check. Building the app alone does not satisfy this gate.
 
 Standard-interface checks validate declaration signatures, independent header
-compilation and source trace/catalog consistency. They are compile-only checks:
-they do not call or link the nine unimplemented services and are not runtime
-AUTOSAR conformance evidence.
+compilation and source trace/catalog consistency. Those interface checks do not
+link the three unimplemented lifecycle services. Separately,
+``test/test_os_tasks.c`` executes the real configured-task backend against a
+controlled native implementation to verify admission, nonreturn termination,
+chaining, queries, allocation rollback and deinit retry. Host results do not
+establish physical scheduling or AUTOSAR OS conformance.
+
+14 Configured basic-task lifecycle
+----------------------------------
+
+``EbOs_OsInit`` and ``EbOs_OsDeinit`` are explicit NeoTech extensions declared
+in ``OsShell/EbOs_Os.h``. Configuration validation and native worker allocation
+are all-or-nothing, and workers cannot enter project code before initialization
+completes. Initialization does not activate any task. Product composition must
+request work with ``ActivateTask`` after successful initialization.
+
+The project owns IDs and immutable ``Os_Config`` storage under ``Conf/EbOs/Os``.
+The dormant ``Os_Task_ProjectCheck`` example exercises queries and termination
+without joining camera/HTTP/Wi-Fi startup. EbOs references no product symbols.
+See :ref:`the profile configuration example <ebos-basic-task-profile>`.
+
+The owner serializes lifecycle operations with every standard task call and
+keeps configuration alive until successful deinit. Active or not-yet-parked
+workers produce ``NEO_E_BUSY`` without deletion or lost state. The owner retries
+after quiescence. This mechanism does not implement ``StartOS`` or ``ShutdownOS``.
+
+Successful termination/chaining abandon the current C call chain through a live,
+same-worker nonlocal exit. Entries must not cross variable-length arrays or C++
+destruction frames, must not block and must release native locks first. The
+native worker remains allocated for future activations. These limitations also
+apply to helpers called by an entry. No force-stop API is supplied.
+
+Native ISR calls are rejected. Task calls with masked interrupts return
+``E_OS_DISABLEDINT`` before mutation; suspended-scheduler calls return
+``E_OS_CALLEVEL``. Query output pointers are null-checked but not memory-protected.
+The optional missing-end diagnostic receives the task ID and ``E_OS_MISSINGEND``
+before activation retirement and may
+query identity/state; termination, chaining and scheduling from that hook are
+rejected. It is a NeoTech callback, not standard ErrorHook.

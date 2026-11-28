@@ -3,9 +3,10 @@
 R26-11 requirements and service contracts
 =========================================
 
-This page defines the selected standard interface and its trace context. The
-nine services declared in ``Os/Os.h`` are **specified, not implemented**. The
-working ``EbOs_*`` ESP-IDF adapter remains a separate NeoTech extension profile.
+The six task services declared in ``Os/Os.h`` have an implemented ESP-IDF
+**basic-task profile**. ``StartOS``, ``ShutdownOS`` and
+``GetActiveApplicationMode`` remain specified, not implemented. The selected
+profile and its tests do not establish AUTOSAR OS conformance.
 
 Why requirements and specification are separate
 -----------------------------------------------
@@ -19,315 +20,294 @@ Why requirements and specification are separate
      - Purpose
    * - `Requirements on Operating System <https://www.autosar.org/fileadmin/standards/R26-11/CP/AUTOSAR_CP_RS_OS.pdf>`__
      - R26-11, UID 8
-     - Describes OS capabilities, constraints and their rationale at the
-       requirements level.
+     - OS capabilities, constraints and their rationale.
    * - `Specification of Operating System <https://www.autosar.org/fileadmin/standards/R26-11/CP/AUTOSAR_CP_SWS_OS.pdf>`__
      - R26-11, UID 34
-     - Refines those requirements into detailed service behavior, configuration,
-       call contexts and error rules.
+     - Detailed service behavior, configuration, call contexts and errors.
    * - `OSEK/VDX Operating System Specification <https://www.osek-vdx.org/mirror/os223.pdf>`__
      - 2.2.3
-     - Supplies the inherited base contracts for the selected core services.
+     - Inherited base task/lifecycle contracts.
 
 Both AUTOSAR documents were published on 26 November 2026. They separate
-**levels of detail**, not requirements from implementation. The SWS is still a
-specification; it does not prescribe a FreeRTOS implementation.
+**levels of detail**; the SWS remains a specification and does not prescribe a
+FreeRTOS implementation. The requirements filename is ``AUTOSAR_CP_RS_OS.pdf``;
+its published IDs retain the ``SRS_Os_*`` namespace.
 
-For example, ``SRS_Os_00097`` in RS section 4.2.2 requires continuity with the
-OSEK OS interface. ``SWS_Os_00001`` in SWS section 7.1.2 refines that requirement
-and explicitly records it as an upstream requirement. This gives the development
-chain:
+For example, ``SRS_Os_00097`` in RS section 4.2.2 requires OSEK interface
+compatibility. ``SWS_Os_00001`` in SWS section 7.1.2 refines that requirement and
+records it upstream. Development adds further evidence:
 
 .. code-block:: text
 
    RS capability and rationale
       -> SWS/OSEK service contract
-      -> source declaration
-      -> runtime implementation
+      -> source interface and implementation
       -> behavioral verification
+      -> platform acceptance
 
-The requirements filename is ``AUTOSAR_CP_RS_OS.pdf``, but the published IDs
-retain the ``SRS_Os_*`` namespace. Do not rename them to ``RS_Os_*``.
+A source ``TRACE[...]`` marker identifies this context; it does not claim that
+the complete standard requirement is satisfied. The catalog keeps every
+AUTOSAR requirement contextual or partial while recording the six services as
+``implemented_profile``. Earlier revisions contained declarations only; that
+historical status does not describe the current task backend.
 
-Declaring an inherited service does not prove that ``SWS_Os_00001`` is satisfied.
-Its ``TRACE[...]`` occurrence identifies the design context. The implementation
-and behavioral evidence are explicitly absent for this interface-first stage.
-
-Source layout and comments
+Ownership and coding style
 --------------------------
 
-Production files follow the repository's ``neo-h`` / ``neo-c`` templates:
-NeoTech administrative header, change history, section banners, declaration
-groups and Doxygen comments. CUCEL's ``Platform_Types.h`` is the visual reference;
-its Platform-specific IDs and metadata values are not copied into OS files.
+Production files use the ``neo-h`` / ``neo-c`` NeoTech administrative banner,
+change history, section order and Doxygen comments. CUCEL's
+``Platform_Types.h`` supplies the style reference. Its Platform-specific trace IDs
+and metadata are not copied to OS code.
 
-Public function comments identify verified requirements, service behavior,
-parameters, return/error meanings, execution context and restrictions. Details
-use concise descriptions rather than reproducing complete standard clauses.
-Standard-service declarations are marked as contracts without implementations.
-Custom native-adapter functions use independently defined ``NEO_EBOS_*`` IDs.
-Formatting or adding a trace marker does not change a requirement's status.
+.. code-block:: text
 
-Standard contracts live under ``Os``; the native-helper interface lives under
-``OsShell``; its ESP-IDF implementation lives under ``Os_EspIdf``. The project
-mirrors native shell ownership under ``Conf/EbOs/OsShell``. These groups follow
-MMD's responsibility split without copying supplier-specific package names or
-creating unused groups. Package-level requirements and verification remain
-shared. Exported include directories preserve ``#include "Os.h"`` and
-``#include "EbOs.h"`` for callers.
+   EbOs/Os/Os.h                     standard task interface
+   EbOs/Os/Os_Types.h               portable types and error encodings
+   EbOs/OsShell/EbOs_Os.h           profile configuration types and lifecycle
+   EbOs/Os_EspIdf/Os_EspIdf.c       task-service implementation
+   EbOs/OsShell/EbOs.h              independent native-helper interface
+   EbOs/Os_EspIdf/EbOs_EspIdf.c     native-helper implementation
 
-.. _ebos-service-catalog:
+   Conf/EbOs/Os/Os_Cfg.h            project task IDs
+   Conf/EbOs/Os/Os_Cfg.c            project task table, policy and entry wiring
+   Conf/EbOs/OsShell/EbOs_Cfg.*      existing camera native-thread policy/wiring
 
-Selected standard service catalog
----------------------------------
+EbOs receives configuration by argument and includes no project configuration
+headers. Product names, priorities, stack sizes, activation limits and entry
+bindings stay under ``Conf/EbOs``. Package source/include metadata remains in
+``module.cmake``; no forwarding headers or loose production C files belong at
+the EbOs root.
 
-The six task services originate in OSEK OS 2.2.3 sections 13.2.3.1 through
-13.2.3.6. Lifecycle services originate in sections 13.7.2.1 through 13.7.2.3.
-R26-11 SWS identifies the OSEK-origin APIs in its interface summary; it must not
-be used to invent individual API-definition IDs for inherited services.
+.. _ebos-basic-task-profile:
+
+Implemented basic-task profile
+------------------------------
+
+The product passes an immutable ``EbOs_OsConfigType`` to ``EbOs_OsInit``.
+Initialization validates the complete table and allocates dormant native
+workers; it does not activate entries, start a kernel or implement ``StartOS``.
+Task IDs are table indices. Names, table storage and function bindings remain
+valid until successful ``EbOs_OsDeinit``.
+
+The current NeoCam table contains ``Os_Task_ProjectCheck``, a dormant example.
+It queries task identity/state and terminates. Existing camera, HTTP and Wi-Fi
+startup behavior stays unchanged until project composition explicitly chooses
+to initialize and activate this profile:
 
 .. code-block:: c
 
-   StatusType ActivateTask(TaskType TaskID);
-   StatusType TerminateTask(void);
-   StatusType ChainTask(TaskType TaskID);
-   StatusType Schedule(void);
-   StatusType GetTaskID(TaskRefType TaskID);
-   StatusType GetTaskState(TaskType TaskID, TaskStateRefType State);
-   AppModeType GetActiveApplicationMode(void);
-   void StartOS(AppModeType Mode);
-   void ShutdownOS(StatusType Error);
+   #include "EbOs_Os.h"
+   #include "Os_Cfg.h"
 
-.. list-table:: Core service contracts
+   /* In serialized product composition, with the scheduler running. */
+   if (EbOs_OsInit(&Os_Config) == NEO_OK)
+   {
+       StatusType status = ActivateTask(Os_Task_ProjectCheck);
+       /* Product composition handles status and owns the later deinit. */
+       (void)status;
+   }
+
+Supported entries are **fully preemptive basic C tasks**, all pinned to one
+explicit core, with distinct native priorities. Stacks use ESP-IDF byte units.
+A positive activation limit includes the current activation and queued requests.
+Entries must not block or retain native locks when terminating. There is no
+extended-task event service, non-preemptive policy, internal resource, AUTOSAR
+resource/spinlock service, OS-Application protection or equal-priority scheduling
+implementation in this profile.
+
+Successful ``TerminateTask`` and ``ChainTask`` leave the application call chain
+through a same-worker C nonlocal exit and restart later activations at the entry.
+A task or helper in that chain must not use variable-length arrays, cross C++
+objects requiring destruction, or depend on automatic cleanup after termination.
+The SDK worker persists across activations; no native task allocation occurs in
+``ActivateTask``.
+
+Initialization and deinitialization must be externally serialized with **all six
+task services**, not only with each other. The configuration is immutable during
+its lifetime. Deinit returns ``NEO_E_BUSY`` while any activation is outstanding or
+a worker has not reached its private parked wait, preserving everything for a
+later retry. It never force-deletes active work. No outside code may notify,
+resume or otherwise manipulate profile workers.
+
+The optional ``missing_end_hook`` receives the task ID and ``E_OS_MISSINGEND``
+as a NeoTech diagnostic before retirement. It
+may query identity/state and must return without blocking; it must not call
+``TerminateTask``, ``ChainTask`` or ``Schedule``. It is not standard ``ErrorHook``
+or Pre/PostTaskHook. Tasks normally finish through explicit termination/chaining.
+
+.. _ebos-service-catalog:
+
+Selected task service catalog
+-----------------------------
+
+The service origins are OSEK OS 2.2.3 sections 13.2.3.1 through 13.2.3.6,
+retained through ``SWS_Os_00001``. The SWS interface summary does not supply new
+individual API-definition IDs for these inherited functions.
+
+.. list-table:: Implemented service behavior within the profile
    :header-rows: 1
-   :widths: 25 14 37 24
+   :widths: 22 52 26
 
    * - Service
-     - OSEK clause
-     - Contract summary
-     - Base return / error contract
-   * - ``ActivateTask``
-     - 13.2.3.1
-     - Request a configured task activation; a higher-priority task may run
-       before the caller resumes.
-     - ``E_OK`` or ``E_OS_LIMIT``; extended status adds ``E_OS_ID``.
-   * - ``TerminateTask``
-     - 13.2.3.2
-     - End the caller's task activation. Successful termination does not return.
-     - Extended-status errors: ``E_OS_RESOURCE``, ``E_OS_CALLEVEL``.
-   * - ``ChainTask``
-     - 13.2.3.3
-     - End the current activation and activate the specified task.
-     - Success does not return; ``E_OS_LIMIT``; extended status adds
-       ``E_OS_ID``, ``E_OS_RESOURCE``, ``E_OS_CALLEVEL``.
-   * - ``Schedule``
-     - 13.2.3.4
-     - Offer a scheduling point under the configured task scheduling rules.
-     - ``E_OK``; extended status adds ``E_OS_CALLEVEL``, ``E_OS_RESOURCE``.
-   * - ``GetTaskID``
-     - 13.2.3.5
-     - Write the executing task ID, or ``INVALID_TASK`` when none applies.
-     - ``E_OK``.
-   * - ``GetTaskState``
-     - 13.2.3.6
-     - Write the selected task's observable state.
-     - ``E_OK``; extended status adds ``E_OS_ID``.
-   * - ``GetActiveApplicationMode``
-     - 13.7.2.1
-     - Read the active application mode.
-     - ``AppModeType``; no status result.
-   * - ``StartOS``
-     - 13.7.2.2
-     - Enter the selected application mode from outside the OS.
-     - No result; control need not return.
-   * - ``ShutdownOS``
-     - 13.7.2.3
-     - Shut down the calling core, invoking its configured shutdown hook first.
-     - No normal status return.
+     - Profile behavior
+     - Specific results
+   * - ``ActivateTask(TaskID)``
+     - Queue one activation; limit failure leaves all state unchanged.
+     - ``E_OK``, ``E_OS_ID``, ``E_OS_LIMIT``.
+   * - ``TerminateTask()``
+     - End the current activation, retaining pending requests and the worker.
+     - Success never returns; invalid caller returns ``E_OS_CALLEVEL``.
+   * - ``ChainTask(TaskID)``
+     - Retire caller and release successor. Self-chain replaces the activation
+       without consuming additional capacity; failed chaining preserves caller.
+     - Success never returns; ``E_OS_ID`` or ``E_OS_LIMIT`` on rejected target.
+   * - ``Schedule()``
+     - Check context and return. Fully preemptive entries without internal
+       resources need no explicit native yield.
+     - ``E_OK`` for an eligible configured caller.
+   * - ``GetTaskID(TaskID)``
+     - Write configured identity, or ``INVALID_TASK`` for an unregistered SDK task.
+     - ``E_OK`` or ``E_OS_ILLEGAL_ADDRESS`` for null output.
+   * - ``GetTaskState(TaskID, State)``
+     - Write a snapshot: outstanding work ready/running, no work suspended.
+       ``WAITING`` diagnoses unsupported native blocking; it is not event support.
+     - ``E_OK``, ``E_OS_ID`` or ``E_OS_ILLEGAL_ADDRESS`` for null output.
 
-Every row has the status **specified, not implemented**. These base conditions
-are not a complete AUTOSAR extended-status/error catalog. The R26-11 SWS adds
-service-protection, application-access, multicore and other constraints; a future
-implementation must implement the applicable refinements before claiming those
-services as supported.
+All six additionally check initialization, native task context, interrupt state
+and scheduler state. Prohibited calls have no requested effect and leave output
+storage unchanged. The profile uses ``E_OS_STATE`` before initialization,
+``E_OS_CALLEVEL`` for native ISR or suspended-scheduler calls, and
+``E_OS_DISABLEDINT`` for masked task interrupts. Missing-end hook restrictions
+apply to termination, chaining and scheduling. Read-only hook queries remain
+available.
 
-.. list-table:: Selected R26-11 refinements
-   :header-rows: 1
-   :widths: 31 69
+These results describe the implemented profile, not the complete standard
+extended-status catalog. The inherited task-only services require resources to
+be released and R26-11 adds spinlock restrictions. Those services and ownership
+checks are not implemented: release every native lock before ending an entry.
+Native mutex priority inheritance does not implement AUTOSAR resource ceilings.
 
-   * - SWS requirement context
-     - Intended contract; runtime is not implemented
-   * - ``SWS_Os_00093``
-     - Applicable interrupt-lock checks report ``E_OS_DISABLEDINT``.
-   * - ``SWS_Os_00612``
-     - Termination/chaining must account for occupied spinlocks; extended
-       status includes ``E_OS_SPINLOCK``.
-   * - ``SWS_Os_00624``
-     - Scheduling while holding a spinlock requires the specified error handling.
-   * - ``SWS_Os_00424``
-     - The initial ``StartOS`` call does not return.
-   * - ``SWS_Os_00425`` / ``SWS_Os_00617``
-     - ``ShutdownOS`` acts on the calling core; after a returning shutdown hook,
-       its specified path disables interrupts and remains in a loop.
-   * - ``SWS_Os_91025``
-     - Error classification remains a standard-contract concern; defining error
-       constants alone does not implement its checks or error handling.
+R26-11 call contexts include category 2 ISRs for activation and read-only queries,
+and selected standard hooks for queries. The current adapter rejects **all native
+ISRs** because it has no category 2 bridge. Native ISR identity is not synthesized
+from global task state. ``StartOS``, ``ShutdownOS`` and
+``GetActiveApplicationMode`` retain their declarations without runtime bodies;
+profile init/deinit does not implement them.
 
-Base call contexts
-~~~~~~~~~~~~~~~~~~
+Types and representation
+-------------------------
 
-.. list-table:: Inherited call-context summary
-   :header-rows: 1
-   :widths: 37 63
+``StatusType``, ``E_OK`` and ``STATUSTYPEDEFINED`` come from CUCEL
+``Std_Types.h``; they are distinct from ``Neo_StatusType`` used by extension
+lifecycle calls. The integration selects the compatible CUCEL commit
+``0bde70c9eb73ae203a52b590c6aaf3f93c4f850e``. The original
+``cucel/1.0.0@neotech/prototype`` lacks ``StatusType``. No local fallback typedef
+is supplied.
 
-   * - Service group
-     - Base context
-   * - ``ActivateTask``
-     - Task or category-2 ISR.
-   * - ``TerminateTask``, ``ChainTask``, ``Schedule``
-     - Task context, subject to resource and call-level restrictions.
-   * - ``GetTaskID``, ``GetTaskState``
-     - Task, category-2 ISR, ErrorHook and Pre/PostTaskHook contexts.
-   * - ``GetActiveApplicationMode``
-     - Task, category-2 ISR and the standard startup/shutdown/error/task hooks.
-   * - ``StartOS``
-     - Outside the running OS; it is not a callable replacement for native
-       object initialization after ESP-IDF has started scheduling.
-   * - ``ShutdownOS``
-     - Task, category-2 ISR, ErrorHook or StartupHook, and internal OS handling.
+Task IDs and application-mode storage use ``uint32``; task states use ``uint8``.
+The chosen widths, state encodings, sentinels and default mode are NeoTech
+representation decisions, not complete AUTOSAR type-conformance claims.
+``DONOTCARE`` has the ``SWS_Os_91007`` context, but mode reconciliation is not
+implemented. No native handles appear in the public interfaces.
 
-R26-11's call-context and service-protection tables remain authoritative for
-extensions and trusted-function cases. An ESP-IDF ISR is not automatically an
-AUTOSAR category-2 ISR. These context labels describe the intended standard
-contract; there is no implemented context dispatcher in this stage.
-
-Types and representation choices
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-``StatusType`` and ``E_OK`` are reused from CUCEL's ``Std_Types.h`` and its
-``STATUSTYPEDEFINED`` contract. They are distinct from ``Neo_StatusType``.
-The integration profile selects the existing CUCEL commit
-``0bde70c9eb73ae203a52b590c6aaf3f93c4f850e`` that supplies this contract.
-The original ``cucel/1.0.0@neotech/prototype`` snapshot lacks ``StatusType``;
-it cannot compile the new standard headers. EbOs does not add a fallback typedef.
-``TaskRefType`` points to ``TaskType``; ``TaskStateRefType`` points to
-``TaskStateType``.
-
-The profile chooses ``uint32`` for task IDs and application modes and ``uint8``
-for task-state storage. State codes, ID sentinels and default-mode values are
-documented implementation choices in ``Os/Os_Types.h``; they are not claims that
-AUTOSAR requires those widths or all numeric representations. ``DONOTCARE`` has
-the R26-11 ``AppModeType`` context recorded by ``SWS_Os_91007``. A constant does
-not implement multicore startup or mode reconciliation. The published type
-description has enumeration semantics; the draft's ``uint32`` representation
-choice alone is not proof of satisfying that complete type contract.
-
-No native FreeRTOS handles or ESP-IDF types are exposed by the standard headers.
-``E_OK`` is not redefined. The inherited base error profile uses values 1 through
-8; the draft assigns ``0x10`` and ``0x11`` to ``E_OS_DISABLEDINT`` and
-``E_OS_SPINLOCK``. Those additional numeric values are explicitly NeoTech
-representation choices, not AUTOSAR-mandated numbers.
+Inherited errors retain values 1 through 8. AUTOSAR-specific encodings are
+implementation assigned under ``SWS_Os_91025``: ``E_OS_DISABLEDINT`` is ``0x10``,
+``E_OS_SPINLOCK`` is ``0x11``, ``E_OS_MISSINGEND`` is ``0x12`` and
+``E_OS_ILLEGAL_ADDRESS`` is ``0x13``. Defining a code does not implement every
+standard condition that can report it.
 
 .. _ebos-trace-matrix:
 
 Trace matrix and evidence
 -------------------------
 
-The machine-readable catalog is ``requirements/traceability.json``. Its selected
-AUTOSAR entries identify the document release and verified requirement IDs.
-NeoTech extension entries identify independently defined module behavior. Keep
-the catalog and source comments in the same change.
+``requirements/traceability.json`` records source release, pages, service
+origins, implementation paths, profile restrictions and verification files.
+Every AUTOSAR entry remains contextual or partial; none is marked satisfied.
 
-Run ``python test/test_traceability.py`` from the module to check source traces,
-template sections, signatures and the declaration-only status. The checks reject
-unknown IDs, native service aliases and false implementation claims. Add
-``--integration <workspace>`` to include project-owned configuration comments.
-With ``pypdf`` available and the official PDFs cached under
-``_build/standards/R26-11``, add ``--source-cache _build/standards/R26-11`` to
-verify document hashes, releases and requirement IDs on their recorded pages.
-The PDFs are not redistributed; normal CI validates the reviewed catalog offline.
-
-.. list-table:: Standard-interface trace context
+.. list-table:: Selected standard trace context
    :header-rows: 1
-   :widths: 27 33 20 20
+   :widths: 32 44 24
 
    * - Requirement context
-     - Declaration scope
-     - Status
+     - Implementation status and gap
      - Evidence
-   * - ``SRS_Os_00097`` -> ``SWS_Os_00001``
-     - Selected OSEK task/lifecycle service declarations in ``Os/Os.h``.
-     - Specified; runtime not implemented.
-     - Origin/signature catalog and compile-only interface checks. No runtime
-       conformance evidence.
-   * - ``SWS_Os_91007``
-     - ``AppModeType`` / ``DONOTCARE`` context in ``Os/Os_Types.h``.
-     - Representation specified; multicore startup not implemented.
-     - Type/constant checks only.
-   * - ``SWS_Os_00093``, ``SWS_Os_00424``, ``SWS_Os_00425``,
-       ``SWS_Os_00612``, ``SWS_Os_00617``, ``SWS_Os_00624``, ``SWS_Os_91025``
-     - The selected R26-11 refinement contexts recorded by the headers and
-       catalog; summarized above.
-     - Specified; runtime not implemented.
-     - Source/contract checks only; behavioral tests remain future work.
+   * - ``SRS_Os_00097`` / ``SWS_Os_00001``
+     - Six profile services implemented; complete OSEK/AUTOSAR compatibility not
+       established.
+     - Contract compilation and ``test/test_os_tasks.c``.
+   * - ``SWS_Os_00088`` / ``SWS_Os_00093``
+     - Task/ISR/hook and masked-interrupt checks; standard category 2 dispatch,
+       OS-Application protection and interrupt services absent.
+     - Context rejection without state mutation.
+   * - ``SWS_Os_00566``
+     - Null references checked. Protected writable-address validation remains
+       absent; a null check is not memory protection.
+     - Output-reference regression cases.
+   * - ``SWS_Os_00052`` / ``SWS_Os_00069``
+     - Returning entries retired; optional NeoTech diagnostic runs first.
+       Standard ErrorHook and Pre/PostTaskHook semantics absent.
+     - Return-without-termination diagnostic and identity checks.
+   * - ``SWS_Os_00612`` / ``SWS_Os_00624``
+     - Context only: resource/spinlock mechanisms and ownership checks absent.
+     - Contract/source checks, no satisfaction claim.
+   * - ``SWS_Os_00424`` / ``SWS_Os_00425`` / ``SWS_Os_00617``
+     - Context only: OS startup/shutdown unimplemented.
+     - Declarations only; no lifecycle runtime claim.
+   * - ``SWS_Os_91007`` / ``SWS_Os_91025``
+     - Representation context; error encodings selected, complete application
+       modes and type compatibility unverified.
+     - Type/constant and signature checks.
 
-.. list-table:: Implemented NeoTech extension trace map
+.. list-table:: Independent NeoTech requirements
    :header-rows: 1
-   :widths: 25 35 40
+   :widths: 30 40 30
 
-   * - ID
+   * - IDs
      - Source scope
-     - Status and evidence
-   * - ``NEO_EBOS_00001``
-     - ``EbOs_MutexCreate``
-     - Implemented; validation and allocation-cleanup tests.
-   * - ``NEO_EBOS_00002``
-     - ``EbOs_MutexLock``
-     - Implemented; nonblocking, bounded and indefinite wait tests.
-   * - ``NEO_EBOS_00003`` / ``NEO_EBOS_00004``
-     - ``EbOs_MutexUnlock`` / ``EbOs_MutexDelete``
-     - Implemented; ownership/lifecycle and null-handle tests.
-   * - ``NEO_EBOS_00005`` / ``NEO_EBOS_00006``
-     - ``EbOs_Delay`` / ``EbOs_DelayOneTick``
-     - Implemented; rounding/saturation and actual-tick tests.
-   * - ``NEO_EBOS_00007``
-     - ``EbOs_TaskCreate``
-     - Implemented; configuration, allocation and fast-completion tests.
-   * - ``NEO_EBOS_00008``
-     - ``EbOs_TaskJoinAndDelete`` and native completion trampoline.
-     - Implemented; completion/suspension, timeout/retry and cleanup tests.
-   * - ``NEO_EBOS_00009``
-     - ``EbOs_TaskGetStackMinFree``
-     - Implemented; native/cached-minimum and context tests.
-   * - ``NEO_EBOS_00010`` / ``NEO_EBOS_00011`` / ``NEO_EBOS_00012``
-     - Opaque mutex/task handles and native task configuration.
-     - Implemented; independent headers and a second-product configuration.
-   * - ``NEO_EBOS_00013`` / ``NEO_EBOS_00014``
-     - Indefinite-wait and any-core constants.
-     - Implemented; wait conversion and one-/two-core configuration tests.
+     - Evidence
+   * - ``NEO_EBOS_00001`` through ``NEO_EBOS_00006``
+     - Native mutexes, delays and one-tick yield.
+     - ``test/test_ebos.c``.
+   * - ``NEO_EBOS_00007`` through ``NEO_EBOS_00014``
+     - Native task create/join/stack metrics, opaque types and configuration.
+     - Native-helper tests and second-product fixture.
    * - ``NEO_EBOS_OS_TYPES``
-     - Standard-contract profile representations.
-     - Specified; compile-only type/signature checks.
+     - Portable profile representations.
+     - Independent header/type/signature checks.
+   * - ``NEO_EBOS_OS_RUNTIME``
+     - Configured activation/lifecycle profile in ``Os_EspIdf/Os_EspIdf.c``;
+       product supplies ``Conf/EbOs/Os`` policy.
+     - ``test/test_os_tasks.c``; physical acceptance pending.
    * - ``NEO_EBOS_CFG_00001`` / ``NEO_EBOS_CFG_00002``
-     - Integration-owned task policy and runnable wiring in ``Conf/EbOs/OsShell``.
-     - Implemented; camera backend/project-wiring regression. These are
-       project configuration requirements, not AUTOSAR-issued OS requirements.
+     - Existing camera policy and native-thread wiring in ``Conf/EbOs/OsShell``.
+     - Camera backend/project-wiring regression.
 
-``EbOs_TaskCreate`` is dynamic native-thread creation, not ``ActivateTask``.
-``EbOs_TaskJoinAndDelete`` is owner-driven cooperative retirement, not
-``TerminateTask``. The two profiles must not be connected through macro aliases,
-success-returning stubs or requirement markers that imply runtime equivalence.
+``EbOs_TaskCreate`` creates a native thread; ``ActivateTask`` queues a configured
+activation. ``EbOs_TaskJoinAndDelete`` retires an owner's cooperative native
+thread; ``TerminateTask`` ends the caller's current configured activation. The
+profiles remain separate and may not be joined through macro aliases.
 
 Verification boundaries
 -----------------------
 
-Interface checks compile the standard headers and verify function-pointer types
-without calling or linking the unimplemented services. Trace checks compare
-source markers with the recorded catalog. Strict Sphinx builds check document
-structure and internal references. None of these establishes AUTOSAR runtime
-conformance.
+Run ``python test/run_host_tests.py``. Real task-service source executes against
+a controlled native backend to check activation limits, self/other chaining,
+nonreturn exits, entry restart, missing-end diagnostics, context checks,
+configuration/allocation failures and safe deinit/retry. Header checks separately
+verify all nine standard signatures without linking the three unimplemented
+lifecycle services.
 
-The existing native-adapter regressions continue to check implemented behavior.
-Its physical dual-core/camera acceptance gate remains pending until the target
-evidence described in :ref:`the module specification <sws-ebos>` is recorded.
-This interface/style revision does not add or execute hardware flashing.
+``python test/test_traceability.py`` checks known IDs, NeoTech templates,
+signatures and the allowed implementation paths. It rejects aliases, duplicate
+or misplaced task bodies, lifecycle bodies and unsupported conformance claims.
+Use ``--integration <workspace>`` to include project configuration. With
+``pypdf`` and cached official PDFs, add
+``--source-cache _build/standards/R26-11`` to verify hashes, release and recorded
+requirement pages. Normal CI uses the reviewed offline catalog.
+
+Host tests and Windows/Ubuntu SDK builds establish logic and integration
+coverage. Physical ESP32-S3 scheduling, lifetime and camera-behavior acceptance
+remain pending until monitor evidence is recorded. Strict Sphinx builds verify
+document structure; source traces and document formatting do not prove runtime
+conformance.

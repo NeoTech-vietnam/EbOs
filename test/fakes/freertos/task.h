@@ -12,4 +12,10 @@ eTaskState eTaskGetState(TaskHandle_t task);
 void vTaskSuspend(TaskHandle_t task);
 void vTaskDelete(TaskHandle_t task);
 void vTaskDelay(TickType_t ticks);
+#define taskSCHEDULER_SUSPENDED ((BaseType_t)0)
+#define taskSCHEDULER_NOT_STARTED ((BaseType_t)1)
+#define taskSCHEDULER_RUNNING ((BaseType_t)2)
+BaseType_t xTaskGetSchedulerState(void);
+uint32_t ulTaskNotifyTake(BaseType_t clear_on_exit, TickType_t timeout);
+BaseType_t xTaskNotifyGive(TaskHandle_t task);
 #endif

@@ -1,8 +1,8 @@
 {
   "schema_version": 1,
   "release": "R26-11",
-  "profile": "core task/lifecycle declarations plus separately implemented NeoTech native-task extensions",
-  "standard_runtime_implemented": false,
+  "profile": "ESP-IDF fully preemptive configured basic-task profile plus independent NeoTech native-task extensions",
+  "standard_runtime_implemented": true,
   "documents": {
     "AUTOSAR_RS_OS": {
       "title": "Requirements on Operating System",
@@ -38,21 +38,29 @@
       "page": 13,
       "section": "4.2.2",
       "summary": "Preserve OSEK OS API compatibility so existing users can migrate.",
-      "status": "context_only_not_satisfied_by_declarations"
+      "status": "partial_profile_evidence",
+      "verification": [
+        "test/test_os_contracts.c",
+        "test/test_os_tasks.c"
+      ]
     },
     "SWS_Os_00001": {
       "origin": "AUTOSAR",
       "document": "AUTOSAR_SWS_OS",
       "page": 37,
       "section": "7.1.2",
-      "summary": "Provide the OSEK-compatible OS interface; this contract does not establish runtime compatibility.",
-      "status": "context_only_not_satisfied_by_declarations",
+      "summary": "Selected task interfaces inherit OSEK contracts; the limited runtime profile does not establish complete OSEK/AUTOSAR compatibility.",
+      "status": "partial_profile_evidence",
       "upstream": [
         "SRS_Os_00097",
         "SRS_BSW_00336",
         "SRS_BSW_00345"
       ],
-      "upstream_scope_note": "The BSW-general parents are external references, not independently verified or claimed by this OS-only profile."
+      "upstream_scope_note": "The BSW-general parents are external references, not independently verified or claimed by this OS-only profile.",
+      "verification": [
+        "test/test_os_contracts.c",
+        "test/test_os_tasks.c"
+      ]
     },
     "SWS_Os_00093": {
       "origin": "AUTOSAR",
@@ -60,7 +68,11 @@
       "page": 81,
       "section": "7.7.3.4",
       "summary": "Ignore non-interrupt OS services while interrupts are disabled or suspended; StatusType services report E_OS_DISABLEDINT.",
-      "status": "context_only_not_satisfied_by_declarations"
+      "status": "partial_profile_evidence",
+      "verification": [
+        "test/test_os_contracts.c",
+        "test/test_os_tasks.c"
+      ]
     },
     "SWS_Os_00424": {
       "origin": "AUTOSAR",
@@ -116,7 +128,11 @@
       "page": 141,
       "section": "7.15",
       "summary": "OS development-error values in the AUTOSAR extension set are assigned by the implementation.",
-      "status": "context_only_not_satisfied_by_declarations"
+      "status": "partial_profile_evidence",
+      "verification": [
+        "test/test_os_contracts.c",
+        "test/test_os_tasks.c"
+      ]
     },
     "NEO_EBOS_00001": {
       "origin": "NeoTech",
@@ -232,7 +248,7 @@
     },
     "NEO_EBOS_OS_TYPES": {
       "origin": "NeoTech",
-      "summary": "Choose portable C representations, task states, sentinels and profile constants for the declaration-only OS contract. This is not an AUTOSAR type-conformance claim.",
+      "summary": "Choose C representations, task states, sentinels and error encodings for the selected OS profile without claiming complete AUTOSAR type conformance.",
       "status": "declarations_verified",
       "verification": [
         "test/test_os_contracts.c"
@@ -253,6 +269,59 @@
       "verification": [
         "CamPipe/test/test_cam_pipe_backend.c"
       ]
+    },
+    "SWS_Os_00052": {
+      "origin": "AUTOSAR",
+      "document": "AUTOSAR_SWS_OS",
+      "page": 80,
+      "section": "7.7.3.4",
+      "summary": "Terminate a returning entry; profile handles retirement but does not implement standard PostTaskHook.",
+      "status": "partial_profile_evidence",
+      "verification": [
+        "test/test_os_tasks.c"
+      ]
+    },
+    "SWS_Os_00069": {
+      "origin": "AUTOSAR",
+      "document": "AUTOSAR_SWS_OS",
+      "page": 80,
+      "section": "7.7.3.4",
+      "summary": "A configured standard ErrorHook reports missing termination before leaving RUNNING; this profile provides only a separately named NeoTech diagnostic.",
+      "status": "partial_profile_evidence",
+      "verification": [
+        "test/test_os_tasks.c"
+      ]
+    },
+    "SWS_Os_00088": {
+      "origin": "AUTOSAR",
+      "document": "AUTOSAR_SWS_OS",
+      "page": 79,
+      "section": "7.7.3.3",
+      "summary": "Wrong-context calls have no effect; the profile checks task/hook/ISR context but does not implement OS-Application protection.",
+      "status": "partial_profile_evidence",
+      "verification": [
+        "test/test_os_tasks.c"
+      ]
+    },
+    "SWS_Os_00566": {
+      "origin": "AUTOSAR",
+      "document": "AUTOSAR_SWS_OS",
+      "page": 40,
+      "section": "7.1.2.2",
+      "summary": "Extended-status pointer arguments reject forbidden null references with E_OS_ILLEGAL_ADDRESS; protected address validation remains unsupported.",
+      "status": "partial_profile_evidence",
+      "verification": [
+        "test/test_os_tasks.c"
+      ]
+    },
+    "NEO_EBOS_OS_RUNTIME": {
+      "origin": "NeoTech",
+      "summary": "Validate immutable project configuration; create dormant pinned basic-task workers; bound and serialize activations; implement nonreturn termination/chaining, task queries, context checks and quiescent retryable deinit within the documented profile.",
+      "status": "implemented_profile",
+      "verification": [
+        "test/test_os_tasks.c"
+      ],
+      "acceptance_note": "Host tests verify lifecycle/admission logic; native hardware scheduling acceptance remains pending."
     }
   },
   "standard_services": {
@@ -266,13 +335,19 @@
         "SRS_Os_00097"
       ],
       "file_context": [
-        "SWS_Os_00093"
+        "SWS_Os_00093",
+        "SWS_Os_00088",
+        "NEO_EBOS_OS_RUNTIME"
       ],
-      "status": "specified_not_implemented",
+      "status": "implemented_profile",
       "verification": [
-        "test/test_os_contracts.c (compile only)"
+        "test/test_os_contracts.c (compile only)",
+        "test/test_os_tasks.c (profile runtime; controlled native backend)"
       ],
-      "runtime_verification": null
+      "runtime_verification": [
+        "test/test_os_tasks.c"
+      ],
+      "implementation": "Os_EspIdf/Os_EspIdf.c"
     },
     "TerminateTask": {
       "header": "Os/Os.h",
@@ -285,13 +360,19 @@
         "SWS_Os_00612"
       ],
       "file_context": [
-        "SWS_Os_00093"
+        "SWS_Os_00093",
+        "SWS_Os_00088",
+        "NEO_EBOS_OS_RUNTIME"
       ],
-      "status": "specified_not_implemented",
+      "status": "implemented_profile",
       "verification": [
-        "test/test_os_contracts.c (compile only)"
+        "test/test_os_contracts.c (compile only)",
+        "test/test_os_tasks.c (profile runtime; controlled native backend)"
       ],
-      "runtime_verification": null
+      "runtime_verification": [
+        "test/test_os_tasks.c"
+      ],
+      "implementation": "Os_EspIdf/Os_EspIdf.c"
     },
     "ChainTask": {
       "header": "Os/Os.h",
@@ -304,13 +385,19 @@
         "SWS_Os_00612"
       ],
       "file_context": [
-        "SWS_Os_00093"
+        "SWS_Os_00093",
+        "SWS_Os_00088",
+        "NEO_EBOS_OS_RUNTIME"
       ],
-      "status": "specified_not_implemented",
+      "status": "implemented_profile",
       "verification": [
-        "test/test_os_contracts.c (compile only)"
+        "test/test_os_contracts.c (compile only)",
+        "test/test_os_tasks.c (profile runtime; controlled native backend)"
       ],
-      "runtime_verification": null
+      "runtime_verification": [
+        "test/test_os_tasks.c"
+      ],
+      "implementation": "Os_EspIdf/Os_EspIdf.c"
     },
     "Schedule": {
       "header": "Os/Os.h",
@@ -323,13 +410,19 @@
         "SWS_Os_00624"
       ],
       "file_context": [
-        "SWS_Os_00093"
+        "SWS_Os_00093",
+        "SWS_Os_00088",
+        "NEO_EBOS_OS_RUNTIME"
       ],
-      "status": "specified_not_implemented",
+      "status": "implemented_profile",
       "verification": [
-        "test/test_os_contracts.c (compile only)"
+        "test/test_os_contracts.c (compile only)",
+        "test/test_os_tasks.c (profile runtime; controlled native backend)"
       ],
-      "runtime_verification": null
+      "runtime_verification": [
+        "test/test_os_tasks.c"
+      ],
+      "implementation": "Os_EspIdf/Os_EspIdf.c"
     },
     "GetTaskID": {
       "header": "Os/Os.h",
@@ -338,16 +431,23 @@
       "origin_clause": "13.2.3.5",
       "traces": [
         "SWS_Os_00001",
-        "SRS_Os_00097"
+        "SRS_Os_00097",
+        "SWS_Os_00566"
       ],
       "file_context": [
-        "SWS_Os_00093"
+        "SWS_Os_00093",
+        "SWS_Os_00088",
+        "NEO_EBOS_OS_RUNTIME"
       ],
-      "status": "specified_not_implemented",
+      "status": "implemented_profile",
       "verification": [
-        "test/test_os_contracts.c (compile only)"
+        "test/test_os_contracts.c (compile only)",
+        "test/test_os_tasks.c (profile runtime; controlled native backend)"
       ],
-      "runtime_verification": null
+      "runtime_verification": [
+        "test/test_os_tasks.c"
+      ],
+      "implementation": "Os_EspIdf/Os_EspIdf.c"
     },
     "GetTaskState": {
       "header": "Os/Os.h",
@@ -356,16 +456,23 @@
       "origin_clause": "13.2.3.6",
       "traces": [
         "SWS_Os_00001",
-        "SRS_Os_00097"
+        "SRS_Os_00097",
+        "SWS_Os_00566"
       ],
       "file_context": [
-        "SWS_Os_00093"
+        "SWS_Os_00093",
+        "SWS_Os_00088",
+        "NEO_EBOS_OS_RUNTIME"
       ],
-      "status": "specified_not_implemented",
+      "status": "implemented_profile",
       "verification": [
-        "test/test_os_contracts.c (compile only)"
+        "test/test_os_contracts.c (compile only)",
+        "test/test_os_tasks.c (profile runtime; controlled native backend)"
       ],
-      "runtime_verification": null
+      "runtime_verification": [
+        "test/test_os_tasks.c"
+      ],
+      "implementation": "Os_EspIdf/Os_EspIdf.c"
     },
     "StartOS": {
       "header": "Os/Os.h",
@@ -497,6 +604,22 @@
       "verification": [
         "test/test_ebos.c"
       ]
+    },
+    "EbOs_OsInit": {
+      "header": "OsShell/EbOs_Os.h",
+      "trace": "NEO_EBOS_OS_RUNTIME",
+      "status": "implemented_profile",
+      "verification": [
+        "test/test_os_tasks.c"
+      ]
+    },
+    "EbOs_OsDeinit": {
+      "header": "OsShell/EbOs_Os.h",
+      "trace": "NEO_EBOS_OS_RUNTIME",
+      "status": "implemented_profile",
+      "verification": [
+        "test/test_os_tasks.c"
+      ]
     }
   },
   "source_files": [
@@ -523,6 +646,41 @@
     {
       "scope": "integration",
       "path": "Conf/EbOs/OsShell/EbOs_Cfg.c"
+    },
+    {
+      "scope": "module",
+      "path": "OsShell/EbOs_Os.h"
+    },
+    {
+      "scope": "module",
+      "path": "Os_EspIdf/Os_EspIdf.c"
+    },
+    {
+      "scope": "integration",
+      "path": "Conf/EbOs/Os/Os_Cfg.h"
+    },
+    {
+      "scope": "integration",
+      "path": "Conf/EbOs/Os/Os_Cfg.c"
     }
-  ]
+  ],
+  "conformance_claim": false,
+  "runtime_limitations": {
+    "tasks": "C-only fully preemptive basic tasks, one explicitly pinned core, distinct native priorities, no blocking entries",
+    "activation": "Limit includes current activation and queued requests; initialization does not activate tasks",
+    "nonlocal_exit": "Successful termination/chaining use same-worker C nonlocal exits; no VLA or C++ destruction frames",
+    "lifecycle": "Init/deinit are externally serialized with all six task services; immutable configuration remains alive until successful deinit",
+    "contexts": "Native ISR calls rejected; no AUTOSAR category 2 ISR bridge; suspended scheduler rejected",
+    "missing_end": "Optional NeoTech diagnostic before retirement, not standard ErrorHook or Pre/PostTaskHook",
+    "unsupported": [
+      "non-preemptive tasks",
+      "equal-priority scheduling",
+      "extended-task events",
+      "AUTOSAR resources and spinlocks",
+      "OS-Application memory/timing protection",
+      "core startup/shutdown",
+      "application modes"
+    ],
+    "target_acceptance": "Pending physical ESP32-S3 verification; host tests do not prove target scheduling"
+  }
 }

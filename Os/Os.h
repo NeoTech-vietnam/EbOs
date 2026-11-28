@@ -17,7 +17,7 @@
  *
  * $Author____:Nguyen Ba Vu Thach$
  *
- * $Function__:AUTOSAR CP R26-11 core OS service contracts; declarations only.$
+ * $Function__:R26-11 task services for the selected ESP-IDF basic-task profile.$
  *
  *************************************************************************
  * $Domain____:NeoTech$
@@ -25,7 +25,7 @@
  * $Date______:28.11.2026$
  * $Class_____:EbOs$
  * $Name_____:Os$
- * $Variant___:1.1.0$
+ * $Variant___:1.2.0$
  * $Revision__:1$
  * $Type_____:H$
  * $State_____:DRAFT$
@@ -37,6 +37,8 @@
  *
  * 1.1.0; 1     28.11.2026 Nguyen Ba Vu Thach
  *   Define the R26-11 core task/lifecycle declaration profile.
+ * 1.2.0; 1     28.11.2026 Nguyen Ba Vu Thach
+ *   Implement the selected basic-task profile; retain lifecycle contracts.
  *
  * $
  *
@@ -60,10 +62,11 @@
  **********************************************************************************************************************
  */
 
-/** @brief   TRACE[SWS_Os_00093]
+/** @brief   TRACE[SWS_Os_00093], TRACE[SWS_Os_00088]
  *  @details Calls returning StatusType also have the R26-11 interrupt-state
  *           restriction: a prohibited call is ignored with E_OS_DISABLEDINT.
- *           This is a specified contract, not behavior provided by EbOs today.
+ *           The task profile checks masked task interrupts before any state change.
+ *           Native ISR calls are rejected until a category 2 adapter exists.
  */
 
 /*
@@ -89,60 +92,74 @@ extern "C" {
  **********************************************************************************************************************
  */
 
-/** @brief   TRACE[SWS_Os_00001], TRACE[SRS_Os_00097]
- *  @details Activate a configured task; origin: OSEK OS 2.2.3 section 13.2.3.1.
- *           This does not create a native task.
- *  @param[in] TaskID Configured task identifier.
- *  @return  E_OK or E_OS_LIMIT; extended base check: E_OS_ID.
- *  @pre     Call context must satisfy R26-11 SWS OS section 7.7.3.3.
- *  @note    R26-11 refinements are catalogued separately. Specified, not implemented.
+/** @brief   TRACE[SWS_Os_00001], TRACE[SRS_Os_00097], TRACE[NEO_EBOS_OS_RUNTIME]
+ *  @details Queue one configured basic-task activation; inherited OSEK section
+ *           13.2.3.1. The limit includes the executing activation and pending work.
+ *           No native worker is created here. Limit failure changes no state.
+ *  @param[in] TaskID Configured task-table index.
+ *  @return  E_OK, E_OS_LIMIT, E_OS_ID; profile checks may return E_OS_STATE,
+ *           E_OS_CALLEVEL or E_OS_DISABLEDINT.
+ *  @pre     Initialized profile; task context with interrupts enabled. Native
+ *           ISR entry, resources, events and protected OS-Applications are outside
+ *           this implementation profile. See EbOs_Os.h for lifecycle restrictions.
  */
 StatusType ActivateTask(TaskType TaskID);
 
 /** @brief   TRACE[SWS_Os_00001], TRACE[SRS_Os_00097], TRACE[SWS_Os_00612]
- *  @details End the current activation; OSEK section 13.2.3.2.
- *  @return  Success does not return. Extended base errors: E_OS_RESOURCE,
- *           E_OS_CALLEVEL; R26-11 adds E_OS_SPINLOCK when a spinlock is held.
- *  @pre     Task context; release resources and spinlocks before termination.
- *  @note    Specified, not implemented. Returning from an EbOs entry is not this service.
+ *  @details End this configured activation; inherited OSEK section 13.2.3.2.
+ *           Successful termination never returns, including from nested C helpers.
+ *           The native worker remains allocated for later activations.
+ *  @return  Success does not return; E_OS_CALLEVEL, E_OS_STATE or E_OS_DISABLEDINT.
+ *  @pre     Active configured C task outside the missing-end diagnostic hook.
+ *           Release every native lock first. Resource/spinlock services and their
+ *           E_OS_RESOURCE/E_OS_SPINLOCK checks remain outside the current profile.
  */
 StatusType TerminateTask(void);
 
 /** @brief   TRACE[SWS_Os_00001], TRACE[SRS_Os_00097], TRACE[SWS_Os_00612]
- *  @details End this activation and activate its successor; OSEK section 13.2.3.3.
- *  @param[in] TaskID Successor task identifier.
- *  @return  Success does not return. Base error: E_OS_LIMIT; extended base errors:
- *           E_OS_ID, E_OS_RESOURCE, E_OS_CALLEVEL; R26-11 adds E_OS_SPINLOCK.
- *  @pre     Task context; release resources and spinlocks before chaining.
- *  @note    Specified, not implemented; no dynamic create/delete alias is supplied.
+ *  @details Atomically retire this activation and queue its successor; inherited
+ *           OSEK section 13.2.3.3. Self-chain replaces the current activation and
+ *           cannot exceed its own limit. Failed chaining leaves the caller active.
+ *  @param[in] TaskID Configured successor index.
+ *  @return  Success does not return; E_OS_LIMIT, E_OS_ID, E_OS_CALLEVEL,
+ *           E_OS_STATE or E_OS_DISABLEDINT.
+ *  @pre     Active configured C task, outside the diagnostic hook, no held locks.
+ *           Resource/spinlock checks and OS-Application access are outside this profile.
  */
 StatusType ChainTask(TaskType TaskID);
 
 /** @brief   TRACE[SWS_Os_00001], TRACE[SRS_Os_00097], TRACE[SWS_Os_00624]
- *  @details Explicit scheduling point; origin: OSEK section 13.2.3.4.
- *  @return  E_OK; extended base errors: E_OS_CALLEVEL, E_OS_RESOURCE.
- *           R26-11 adds E_OS_SPINLOCK if a spinlock remains occupied.
- *  @pre     Task context; resource restrictions of the service apply.
- *  @note    Specified, not implemented; it is not a FreeRTOS yield alias.
+ *  @details Explicit scheduling point; inherited OSEK section 13.2.3.4. This
+ *           fully preemptive profile has no internal resources to release, so
+ *           after context checks this service returns E_OK without a native yield.
+ *  @return  E_OK, E_OS_CALLEVEL, E_OS_STATE or E_OS_DISABLEDINT.
+ *  @pre     Active configured task outside the diagnostic hook, no held locks.
+ *           Non-preemptive tasks and resource/spinlock checks are not supported.
  */
 StatusType Schedule(void);
 
-/** @brief   TRACE[SWS_Os_00001], TRACE[SRS_Os_00097]
- *  @details Read the current/interrupted task identity; OSEK section 13.2.3.5.
- *  @param[out] TaskID Task identifier, or INVALID_TASK when none is running.
- *  @return  Base service: E_OK. R26-11 call-context/interrupt restrictions also apply.
- *  @pre     Valid output storage and a calling context allowed by SWS OS table 7.1.
- *  @note    Specified, not implemented. R26-11 section 7.9.8 defines the local-core view.
+/** @brief   TRACE[SWS_Os_00001], TRACE[SRS_Os_00097], TRACE[SWS_Os_00566]
+ *  @details Read the current configured activation identity; inherited OSEK
+ *           section 13.2.3.5. An unregistered SDK task receives INVALID_TASK.
+ *           Native ISR queries are rejected; interrupted-task lookup needs a
+ *           future category 2 adapter. Writable-address protection is not supplied.
+ *  @param[out] TaskID Current configured task, or INVALID_TASK.
+ *  @return  E_OK, E_OS_ILLEGAL_ADDRESS for NULL, or profile E_OS_STATE,
+ *           E_OS_CALLEVEL or E_OS_DISABLEDINT. Errors leave output unchanged.
+ *  @pre     Valid writable output storage; initialized profile and task context.
  */
 StatusType GetTaskID(TaskRefType TaskID);
 
-/** @brief   TRACE[SWS_Os_00001], TRACE[SRS_Os_00097]
- *  @details Read a task-state snapshot; origin: OSEK section 13.2.3.6.
- *  @param[in] TaskID Configured task identifier.
- *  @param[out] State State snapshot; concurrent execution may change it afterward.
- *  @return  E_OK; extended base error: E_OS_ID. Applicable R26-11 checks remain specified.
- *  @pre     Valid output storage and a calling context allowed by SWS OS table 7.1.
- *  @note    Specified, not implemented; native task states are not exposed here.
+/** @brief   TRACE[SWS_Os_00001], TRACE[SRS_Os_00097], TRACE[SWS_Os_00566]
+ *  @details Read a configured task-state snapshot; inherited OSEK section 13.2.3.6.
+ *           Pending work is READY, native execution of an activation is RUNNING,
+ *           and no outstanding work is SUSPENDED. WAITING diagnoses unsupported
+ *           native blocking; this profile supplies no extended-task event service.
+ *  @param[in] TaskID Configured task-table index.
+ *  @param[out] State State snapshot; execution may change it after this call.
+ *  @return  E_OK, E_OS_ID, E_OS_ILLEGAL_ADDRESS for NULL, or profile E_OS_STATE,
+ *           E_OS_CALLEVEL or E_OS_DISABLEDINT. Errors leave output unchanged.
+ *  @pre     Valid writable output storage; initialized profile and task context.
  */
 StatusType GetTaskState(TaskType TaskID, TaskStateRefType State);
 

@@ -39,6 +39,13 @@ def main():
                         str(ROOT / "test/test_ebos.c"), str(ROOT / "test/fixtures/second_project.c"),
                         "-o", str(binary)], env=environment, check=True)
         subprocess.run([str(binary)], env=environment, check=True)
+        task_binary = output / (f"os-tasks-{cores}" + (".exe" if os.name == "nt" else ""))
+        subprocess.run([cc, *flags, f"-DconfigNUMBER_OF_CORES={cores}",
+                        "-I" + str(ROOT / "test/fakes"), "-I" + str(args.contracts.resolve()),
+                        "-I" + str(ROOT / "Os"), "-I" + str(ROOT / "OsShell"),
+                        str(ROOT / "Os_EspIdf/Os_EspIdf.c"), str(ROOT / "test/test_os_tasks.c"),
+                        "-o", str(task_binary)], env=environment, check=True)
+        subprocess.run([str(task_binary)], env=environment, check=True)
 
 
 if __name__ == "__main__":

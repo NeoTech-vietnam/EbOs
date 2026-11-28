@@ -77,8 +77,11 @@ static void timeout_and_retry(sint32 core)
     assert(atomic_load_explicit(&context.executions, memory_order_relaxed) > 0U);
 }
 
+void test_os_tasks_on_target(void);
+
 void app_main(void)
 {
+    test_os_tasks_on_target();
     /* Warm task/kernel allocation paths before observing the retained heap. */
     (void)esp_timer_get_time();
     immediate_completion(EBOS_CORE_ANY);

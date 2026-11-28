@@ -17,7 +17,7 @@
  *
  * $Author____:Nguyen Ba Vu Thach$
  *
- * $Function__:R26-11 OS contract types; no standard-service implementation.$
+ * $Function__:R26-11 OS types for the selected ESP-IDF basic-task profile.$
  *
  *************************************************************************
  * $Domain____:NeoTech$
@@ -25,7 +25,7 @@
  * $Date______:28.11.2026$
  * $Class_____:EbOs$
  * $Name_____:Os_Types$
- * $Variant___:1.1.0$
+ * $Variant___:1.2.0$
  * $Revision__:1$
  * $Type_____:H$
  * $State_____:DRAFT$
@@ -37,6 +37,8 @@
  *
  * 1.1.0; 1     28.11.2026 Nguyen Ba Vu Thach
  *   Define the R26-11 core task/lifecycle declaration profile.
+ * 1.2.0; 1     28.11.2026 Nguyen Ba Vu Thach
+ *   Add missing-end and illegal-address errors for the task profile.
  *
  * $
  *
@@ -67,7 +69,7 @@
 /** @brief   TRACE[SWS_Os_00001], TRACE[SRS_Os_00097]
  *  @details Selected OSEK-compatible profile values; see OSEK OS 2.2.3,
  *           section 13.1. E_OK and StatusType are supplied by CUCEL.
- *           These constants do not indicate implemented standard services.
+ *           Only the documented basic-task profile is implemented.
  */
 #define E_OS_ACCESS   ((StatusType)1U)
 #define E_OS_CALLEVEL ((StatusType)2U)
@@ -84,6 +86,8 @@
  */
 #define E_OS_DISABLEDINT ((StatusType)0x10U)
 #define E_OS_SPINLOCK    ((StatusType)0x11U)
+#define E_OS_MISSINGEND  ((StatusType)0x12U)
+#define E_OS_ILLEGAL_ADDRESS ((StatusType)0x13U)
 
 /** @brief   TRACE[NEO_EBOS_OS_TYPES]
  *  @details OSEK section 13.2.4 supplies the state names. Numeric encodings

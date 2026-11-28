@@ -1,4 +1,4 @@
-"""Check the recorded OS profile, source traces and declaration-only boundary."""
+"""Check OS profile evidence, source traces and unimplemented-service boundaries."""
 import argparse
 import hashlib
 import json
@@ -18,6 +18,11 @@ SOURCE_CACHE = None
 PRODUCTION_GROUPS = ("Os", "OsShell", "Os_EspIdf")
 STANDARD_SERVICES = {"ActivateTask", "TerminateTask", "ChainTask", "Schedule", "GetTaskID",
                      "GetTaskState", "StartOS", "ShutdownOS", "GetActiveApplicationMode"}
+PROFILE_SERVICES = {"ActivateTask", "TerminateTask", "ChainTask", "Schedule", "GetTaskID",
+                    "GetTaskState"}
+PROFILE_BACKEND = "Os_EspIdf/Os_EspIdf.c"
+PROFILE_EVIDENCE = ["test/test_os_tasks.c"]
+CONTEXT_STATUSES = {"context_only_not_satisfied_by_declarations", "partial_profile_evidence"}
 
 
 def require(condition, message):
@@ -80,12 +85,12 @@ def validate(root, integration=None, source_cache=None):
     catalog = read_catalog(root)
     require(not list(root.glob("*.[ch]")), "Production C/header files must be classified below EbOs")
     require(catalog["release"] == "R26-11", "Unexpected standard release")
-    require(catalog["standard_runtime_implemented"] is False, "This stage has no standard runtime")
+    require(catalog["standard_runtime_implemented"] is True, "Incorrect selected runtime profile")
     require(set(catalog["standard_services"]) == STANDARD_SERVICES, "Incorrect core service coverage")
     known = catalog["requirements"]
     for identifier, requirement in known.items():
         if requirement["origin"] == "AUTOSAR":
-            require(requirement["status"] == "context_only_not_satisfied_by_declarations",
+            require(requirement["status"] in CONTEXT_STATUSES,
                     f"Incorrect requirement satisfaction claim: {identifier}")
             document = catalog["documents"][requirement["document"]]
             require(document["release"] == catalog["release"] and
@@ -121,20 +126,45 @@ def validate(root, integration=None, source_cache=None):
         required = {identifier for identifier in required if not identifier.startswith("NEO_EBOS_CFG_")}
     require(required <= seen, f"Unreferenced requirements: {sorted(required - seen)}")
     for name, service in catalog["standard_services"].items():
-        require(service["status"] == "specified_not_implemented" and service["runtime_verification"] is None,
-                f"Incorrect implementation claim: {name}")
+        implemented = name in PROFILE_SERVICES
+        if implemented:
+            require(service["status"] == "implemented_profile" and
+                    service["runtime_verification"] == PROFILE_EVIDENCE and
+                    service["implementation"] == PROFILE_BACKEND,
+                    f"Incorrect implementation claim: {name}")
+            require(all(source_path(root, item).is_file() for item in PROFILE_EVIDENCE),
+                    f"Missing runtime evidence: {name}")
+        else:
+            require(service["status"] == "specified_not_implemented" and
+                    service["runtime_verification"] is None and
+                    service.get("implementation") is None,
+                    f"Incorrect implementation claim: {name}")
         text = (root / service["header"]).read_text(encoding="utf-8")
         comment, signature = declaration_comment(text, name)
         require(set(service["traces"]) <= set(TRACE.findall(comment)), f"Missing service trace: {name}")
         require(re.sub(r"\s+", "", signature) == re.sub(r"\s+", "", service["signature"]),
                 f"Changed standard signature: {name}")
-        require("not implemented" in comment.lower(), f"Missing declaration-only notice: {name}")
+        if implemented:
+            require("profile" in comment.lower(), f"Missing implementation profile restriction: {name}")
+        else:
+            require("not implemented" in comment.lower(), f"Missing declaration-only notice: {name}")
+        definitions = []
         for source in production_sources(root):
             body = re.sub(r"/\*.*?\*/|//[^\n]*", "", source.read_text(encoding="utf-8"), flags=re.S)
             require(not re.search(r"^\s*#\s*define\s+" + name + r"\b", body, re.M),
                     f"Standard service alias: {name}")
-            require(not re.search(r"\b" + name + r"\s*\([^;{}]*\)\s*\{", body),
-                    f"Unexpected standard service implementation: {name}")
+            pattern = (r"^[ \t]*(?:(?:static|inline|extern)[ \t]+)*"
+                       r"(?:StatusType|void|AppModeType|Neo_StatusType|int)[ \t]+" +
+                       re.escape(name) + r"\s*\([^;{}]*\)\s*\{")
+            for match in re.finditer(pattern, body, re.M):
+                require(implemented and source.relative_to(root).as_posix() == PROFILE_BACKEND,
+                        f"Unexpected standard service implementation: {name}")
+                definition = match.group().rstrip().removesuffix("{").rstrip() + ";"
+                require(re.sub(r"\s+", "", definition) == re.sub(r"\s+", "", service["signature"]),
+                        f"Changed implementation signature: {name}")
+                definitions.append(source)
+        require(len(definitions) == (1 if implemented else 0),
+                f"Incorrect standard service body count: {name}")
     for name, service in catalog["extensions"].items():
         text = (root / service["header"]).read_text(encoding="utf-8")
         comment, _ = declaration_comment(text, name)
@@ -156,6 +186,10 @@ class TraceabilityTests(unittest.TestCase):
                 target = root / record["path"]
                 target.parent.mkdir(parents=True, exist_ok=True)
                 shutil.copy2(ROOT / record["path"], target)
+        for relative in PROFILE_EVIDENCE:
+            target = root / relative
+            target.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(ROOT / relative, target)
         return root
 
     def test_actual_profile(self):
@@ -174,6 +208,41 @@ class TraceabilityTests(unittest.TestCase):
         catalog["standard_services"]["ActivateTask"]["status"] = "implemented"
         (root / "requirements/traceability.json").write_text(json.dumps(catalog))
         with self.assertRaisesRegex(ValueError, "Incorrect implementation claim"):
+            validate(root)
+
+    def test_lifecycle_implementation_claim_is_rejected(self):
+        root = self.fixture()
+        catalog = read_catalog(root)
+        catalog["standard_services"]["StartOS"]["status"] = "implemented_profile"
+        (root / "requirements/traceability.json").write_text(json.dumps(catalog))
+        with self.assertRaisesRegex(ValueError, "Incorrect implementation claim"):
+            validate(root)
+
+    def test_missing_runtime_evidence_is_rejected(self):
+        root = self.fixture()
+        (root / PROFILE_EVIDENCE[0]).unlink()
+        with self.assertRaisesRegex(ValueError, "Missing runtime evidence"):
+            validate(root)
+
+    def test_lifecycle_body_is_rejected(self):
+        root = self.fixture()
+        path = root / PROFILE_BACKEND
+        path.write_text(path.read_text() + "\nvoid StartOS(AppModeType Mode) {}\n")
+        with self.assertRaisesRegex(ValueError, "Unexpected standard service implementation"):
+            validate(root)
+
+    def test_duplicate_profile_body_is_rejected(self):
+        root = self.fixture()
+        path = root / PROFILE_BACKEND
+        path.write_text(path.read_text() + "\nStatusType ActivateTask(TaskType TaskID) { return E_OK; }\n")
+        with self.assertRaisesRegex(ValueError, "Incorrect standard service body count"):
+            validate(root)
+
+    def test_profile_body_outside_backend_is_rejected(self):
+        root = self.fixture()
+        path = root / "Os_EspIdf/EbOs_EspIdf.c"
+        path.write_text(path.read_text() + "\nStatusType ActivateTask(TaskType TaskID) { return E_OK; }\n")
+        with self.assertRaisesRegex(ValueError, "Unexpected standard service implementation"):
             validate(root)
 
     def test_native_alias_is_rejected(self):
