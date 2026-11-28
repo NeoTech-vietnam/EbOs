@@ -1,0 +1,17 @@
+name: EbOs reference integration
+on:
+  push:
+    branches: ['**']
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: module-reference-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  integration:
+    uses: NeoTech-vietnam/ci-workflows/.github/workflows/module-integration.yml@v1.3.2
+    with:
+      config: ci_targets.yml
+    secrets:
+      INTEGRATION_DISPATCH_TOKEN: ${{ secrets.INTEGRATION_DISPATCH_TOKEN }}
